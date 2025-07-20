@@ -2,11 +2,11 @@
   "name": "CodeRally - Programming Contests",
   "short_name": "CodeRally",
   "description": "Track programming contests from Codeforces, HackerRank, and CodeChef",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0f1115",
   "theme_color": "#4a90e2",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "scope": "/",
   "icons": [
     {

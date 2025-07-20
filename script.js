@@ -117,8 +117,31 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             deferredPrompt = null;
         } else {
-            // Fallback for browsers that don't support PWA installation
-            alert('To install this app:\n\n• Chrome: Click the install icon in the address bar\n• Firefox: Add to home screen from browser menu\n• Safari: Add to home screen from share menu');
+            // Detect device type and show appropriate instructions
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isAndroid = /Android/.test(navigator.userAgent);
+            
+            let message = 'To install this app:\n\n';
+            
+            if (isIOS) {
+                message += '📱 On iPhone/iPad:\n';
+                message += '1. Tap the Share button (⬆️)\n';
+                message += '2. Scroll down and tap "Add to Home Screen"\n';
+                message += '3. Tap "Add" to confirm';
+            } else if (isAndroid) {
+                message += '📱 On Android:\n';
+                message += '1. Tap the menu (⋮) in your browser\n';
+                message += '2. Look for "Add to Home Screen" or "Install app"\n';
+                message += '3. Tap "Install" or "Add"';
+            } else {
+                message += '💻 On Desktop:\n';
+                message += '• Chrome: Click the install icon in the address bar\n';
+                message += '• Firefox: Add to home screen from browser menu\n';
+                message += '• Edge: Click the install icon or use browser menu';
+            }
+            
+            alert(message);
         }
     });
     
