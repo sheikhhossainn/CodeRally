@@ -6,8 +6,8 @@ const urlsToCache = [
   './styles.css',
   './script.js',
   './manifest.json',
-  './icon-192.svg',
-  './icon-512.svg'
+  './icons-192.svg',
+  './icons-512.svg'
 ];
 
 // Install event
