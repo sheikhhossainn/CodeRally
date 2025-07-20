@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coderally-v11';
+const CACHE_NAME = 'coderally-v13';
 const urlsToCache = [
   './',
   './index.html',
@@ -6,10 +6,9 @@ const urlsToCache = [
   './styles.css',
   './script.js',
   './manifest.json',
-  './icon-1024.png',
-  './icon-1024.svg',
-  './icon-512.svg',
-  './icon-192.svg'
+  './icon-192.png',
+  './icon-512.png',
+  './icon-1024.png'
 ];
 
 // Install event
