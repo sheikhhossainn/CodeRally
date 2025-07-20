@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coderally-v8';
+const CACHE_NAME = 'coderally-v9';
 const urlsToCache = [
   './',
   './index.html',
@@ -12,6 +12,9 @@ const urlsToCache = [
 
 // Install event
 self.addEventListener('install', (event) => {
+  // Skip waiting to activate new service worker immediately
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -62,6 +65,9 @@ self.addEventListener('fetch', (event) => {
 
 // Activate event
 self.addEventListener('activate', (event) => {
+  // Take control of all clients immediately
+  self.clients.claim();
+  
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
