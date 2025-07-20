@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>CodeRally - Offline</title>
+    <style>
+        .offline-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+            height: 80vh;
+        }
+        
+        .offline-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        
+        .offline-message {
+            margin-bottom: 2rem;
+        }
+        
+        .retry-button {
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .retry-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h2 class="logo">CodeRally</h2>
+            </div>
+        </header>
+
+        <main>
+            <div class="offline-container">
+                <div class="offline-icon">📶</div>
+                <h1>You're Offline</h1>
+                <p class="offline-message">Please check your internet connection and try again.</p>
+                <button class="retry-button" onclick="window.location.reload()">Retry</button>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

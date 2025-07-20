@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="styles.css">
+        <title>CodeRally</title>
+        
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="manifest.json">
+        <meta name="theme-color" content="#4a90e2">
+        <meta name="description" content="Track programming contests from Codeforces, HackerRank, and CodeChef">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="CodeRally">
+        
+        <!-- Favicon and App Icons -->
+        <link rel="icon" href="favicon.ico" sizes="any">
+        <link rel="icon" href="favicon-16x16.png" sizes="16x16" type="image/png">
+        <link rel="icon" href="favicon-32x32.png" sizes="32x32" type="image/png">
+        <link rel="apple-touch-icon" href="icon-192.png">
+        
+        <!-- iOS splash screen images -->
+        <link rel="apple-touch-startup-image" href="splash.png">
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <div class="header-left">
+                    <h2 class="logo">CodeRally</h2>
+                </div>
+                <div class="header-right">
+                    <button id="installBtn">Install App</button>
+                    <button id="notificationBtn" class="notification-button" aria-label="Toggle Notifications">
+                        <span class="notification-icon">🔔</span>
+                        <span class="notification-status"></span>
+                    </button>
+                </div>
+            </header>
+
+            <main>
+                <h1>Programming Contests</h1>
+
+                <p>Platform</p>
+                <button id="codeforces">Codeforces</button>
+                <button id="hackerrank">HackerRank</button>
+                <button id="codechef">CodeChef</button>
+
+                <p>Difficulty</p>
+                <button id="easy">Easy</button>
+                <button id="medium">Medium</button>
+                <button id="hard">Hard</button>
+
+                <p>Contest Status</p>
+                <button id="upcoming" class="active">Upcoming</button>
+                <button id="ongoing">Ongoing</button>
+                <button id="finished">Finished</button>
+
+                <div class="contest-list">
+                    <ul id="contestList">
+                        <!-- Contest items will be dynamically added here -->
+                    </ul>
+                </div>
+            </main>
+        </div>
+        <script src="script.js"></script>
+    </body>
+</html>
