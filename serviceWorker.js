@@ -1,11 +1,13 @@
-const CACHE_NAME = 'coderally-v3';
+const CACHE_NAME = 'coderally-v4';
 const urlsToCache = [
   './',
   './index.html',
   './offline.html',
   './styles.css',
   './script.js',
-  './manifest.json'
+  './manifest.json',
+  './icon-192.svg',
+  './icon-512.svg'
 ];
 
 // Install event
@@ -80,26 +82,12 @@ self.addEventListener('push', (event) => {
   
   const options = {
     body: data.body || 'A programming contest is starting soon!',
-    icon: './icon-192.png',
-    badge: './favicon-32x32.png',
     vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),
       primaryKey: '1',
       url: data.url || '/'
-    },
-    actions: [
-      {
-        action: 'view',
-        title: 'View Contest',
-        icon: './favicon-16x16.png'
-      },
-      {
-        action: 'close',
-        title: 'Close',
-        icon: './favicon-16x16.png'
-      }
-    ]
+    }
   };
 
   event.waitUntil(
