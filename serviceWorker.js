@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coderally-v10';
+const CACHE_NAME = 'coderally-v11';
 const urlsToCache = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const urlsToCache = [
   './styles.css',
   './script.js',
   './manifest.json',
+  './icon-1024.png',
   './icon-1024.svg',
   './icon-512.svg',
   './icon-192.svg'
