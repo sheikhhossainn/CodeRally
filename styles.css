@@ -415,11 +415,39 @@ main button.active {
     #notificationBtn, #installBtn {
         min-width: 44px;
         min-height: 44px;
-        padding: 12px !important;
+        padding: 10px 16px !important;
+        font-size: 13px !important;
+    }
+    
+    #installBtn {
+        padding: 10px 20px !important;
+        border-radius: 22px !important;
     }
     
     .notification-icon {
-        font-size: 22px !important;
+        font-size: 20px !important;
+    }
+    
+    /* Better mobile button layout */
+    main p {
+        font-size: 16px !important;
+        margin: 20px 0 10px 0 !important;
+    }
+    
+    main button {
+        font-size: 14px !important;
+        padding: 12px 20px !important;
+        margin: 8px 8px !important;
+        min-height: 44px !important;
+    }
+    
+    h1 {
+        font-size: 24px !important;
+        margin-bottom: 30px !important;
+    }
+    
+    .header-right {
+        gap: 8px !important;
     }
     
     .contest-timing {

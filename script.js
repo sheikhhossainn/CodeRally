@@ -100,12 +100,27 @@ document.addEventListener('DOMContentLoaded', function() {
     let deferredPrompt;
     let isPWAInstallable = false;
     
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        isPWAInstallable = true;
-        installBtn.textContent = 'Install App';
-    });
+    // Check if app is already installed on load
+    function checkIfInstalled() {
+        // Check if running in standalone mode (already installed)
+        if (window.matchMedia('(display-mode: standalone)').matches || 
+            window.navigator.standalone === true) {
+            installBtn.textContent = 'App Installed!';
+            installBtn.disabled = true;
+            return true;
+        }
+        return false;
+    }
+    
+    // Check on page load
+    if (!checkIfInstalled()) {
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            isPWAInstallable = true;
+            installBtn.textContent = 'Install App';
+        });
+    }
     
     installBtn.addEventListener('click', async () => {
         if (deferredPrompt && isPWAInstallable) {
@@ -150,6 +165,13 @@ document.addEventListener('DOMContentLoaded', function() {
         installBtn.textContent = 'App Installed!';
         installBtn.disabled = true;
     });
+    
+    // Periodic check for installation status (for mobile)
+    setInterval(() => {
+        if (!installBtn.disabled) {
+            checkIfInstalled();
+        }
+    }, 2000);
     
     // Notification button functionality
     notificationBtn.addEventListener('click', async (event) => {
