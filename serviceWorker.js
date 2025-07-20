@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coderally-v4';
+const CACHE_NAME = 'coderally-v5';
 const urlsToCache = [
   './',
   './index.html',
