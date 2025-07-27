@@ -1,4 +1,4 @@
 ## 🌐 Live at  
 👉 [Click Here](https://coderally.netlify.app/)
 
-## Currently PWA is not working
+## Push Notification is not working (Still under development)
