@@ -105,7 +105,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if running in standalone mode (already installed)
         if (window.matchMedia('(display-mode: standalone)').matches || 
             window.navigator.standalone === true) {
-            installBtn.textContent = 'App Installed!';
+            installBtn.innerHTML = '<span class="install-icon">✓</span>';
+            installBtn.title = 'App Installed';
             installBtn.disabled = true;
             return true;
         }
@@ -118,7 +119,8 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             deferredPrompt = e;
             isPWAInstallable = true;
-            installBtn.textContent = 'Install App';
+            installBtn.innerHTML = '<span class="install-icon">⬇️</span>';
+            installBtn.title = 'Install App';
         });
     }
     
@@ -127,7 +129,8 @@ document.addEventListener('DOMContentLoaded', function() {
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
             if (outcome === 'accepted') {
-                installBtn.textContent = 'App Installed!';
+                installBtn.innerHTML = '<span class="install-icon">✓</span>';
+                installBtn.title = 'App Installed';
                 installBtn.disabled = true;
             }
             deferredPrompt = null;
@@ -162,7 +165,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Check if app is already installed
     window.addEventListener('appinstalled', () => {
-        installBtn.textContent = 'App Installed!';
+        installBtn.innerHTML = '<span class="install-icon">✓</span>';
+        installBtn.title = 'App Installed';
         installBtn.disabled = true;
     });
     
@@ -216,6 +220,18 @@ document.addEventListener('DOMContentLoaded', function() {
         refreshNotificationButton();
     }, 100);
     
+    // Add smooth scrolling for the Track Contests button
+    const trackContestsBtn = document.getElementById('trackContestsBtn');
+    if (trackContestsBtn) {
+        trackContestsBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const contestsSection = document.getElementById('contests');
+            if (contestsSection) {
+                contestsSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    }
+    
     // Set default active states
     document.getElementById('codeforces').classList.add('active');
     document.getElementById('easy').classList.add('active');
@@ -225,34 +241,39 @@ document.addEventListener('DOMContentLoaded', function() {
     fetchData();
 });
 
-// Register Service Worker for PWA with auto-update
+// Register Service Worker for PWA with auto-update and push support
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./serviceWorker.js')
-            .then((registration) => {
-                console.log('Service Worker registered successfully');
-                swRegistration = registration;
-                
-                // Check for updates every 30 seconds
-                setInterval(() => {
-                    registration.update();
-                }, 30000);
-                
-                // Listen for service worker updates
-                registration.addEventListener('updatefound', () => {
-                    const newWorker = registration.installing;
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            // New content available, refresh the page
-                            console.log('New content available, refreshing...');
-                            window.location.reload();
-                        }
-                    });
+    window.addEventListener('load', async () => {
+        try {
+            const registration = await navigator.serviceWorker.register('./serviceWorker.js');
+            console.log('Service Worker registered successfully');
+            swRegistration = registration;
+            
+            // Check for updates every 30 seconds
+            setInterval(() => {
+                registration.update();
+            }, 30000);
+            
+            // Listen for service worker updates
+            registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        // New content available, refresh the page
+                        console.log('New content available, refreshing...');
+                        window.location.reload();
+                    }
                 });
-            })
-            .catch((registrationError) => {
-                console.error('Service Worker registration failed:', registrationError);
             });
+            
+            // Initialize notification status if user had previously enabled it
+            if (localStorage.getItem('notificationsEnabled') === 'true') {
+                // Update notification button
+                updateNotificationButtonState();
+            }
+        } catch (registrationError) {
+            console.error('Service Worker registration failed:', registrationError);
+        }
     });
 }
 
@@ -661,13 +682,29 @@ function refreshNotificationButton() {
 async function subscribeToNotifications() {
     try {
         // First check if we can use the service worker for push notifications
-        if ('serviceWorker' in navigator && 'PushManager' in window && swRegistration) {
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
             try {
+                // Make sure service worker is registered and active
+                if (!swRegistration) {
+                    swRegistration = await navigator.serviceWorker.ready;
+                }
+                
                 // Check if already subscribed
                 let subscription = await swRegistration.pushManager.getSubscription();
                 
                 if (!subscription) {
-                    console.log('Using local notifications for demo');
+                    // We need to create a new subscription
+                    // This is a placeholder for actual VAPID keys you would use in production
+                    const applicationServerKey = urlBase64ToUint8Array(
+                        'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
+                    );
+                    
+                    subscription = await swRegistration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: applicationServerKey
+                    });
+                    
+                    console.log('Push notification subscription successful');
                 }
             } catch (swError) {
                 console.log('Service worker push subscription not available:', swError);
@@ -685,6 +722,22 @@ async function subscribeToNotifications() {
         // Fallback to basic notification permission
         localStorage.setItem('notificationsEnabled', 'true');
     }
+}
+
+// Helper function for VAPID key conversion
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
 }
 
 // Unsubscribe from notifications
@@ -949,3 +1002,371 @@ function checkDifficultyMatch(contest, difficulty) {
             return true;
     }
 }
+
+// ==================== PROBLEMS PAGE FUNCTIONALITY ====================
+
+// Problems page variables
+let problemsData = [];
+let filteredProblems = [];
+let currentProblemsPage = 0;
+const PROBLEMS_PER_PAGE = 24; // Show 24 problems (8 rows of 3 problems each)
+let currentProblemFilters = {
+    dataStructure: 'array',
+    difficulty: 'easy',
+    search: ''
+};
+
+// Check if we're on the problems page
+if (window.location.pathname.includes('problems.html')) {
+    document.addEventListener('DOMContentLoaded', function() {
+        initProblemsPage();
+    });
+}
+
+function initProblemsPage() {
+    const dataStructureButtons = document.querySelectorAll('#array, #linkedlist, #tree, #graph, #string, #dp, #math, #greedy');
+    const difficultyButtons = document.querySelectorAll('#easy, #medium, #hard');
+    const searchInput = document.getElementById('searchInput');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    const installBtn = document.getElementById('installBtn');
+    
+    // Initialize with "array" and "easy" as active
+    document.getElementById('array').classList.add('active');
+    document.getElementById('easy').classList.add('active');
+    
+    // Install button functionality
+    if (installBtn) {
+        installBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (window.deferredPrompt) {
+                window.deferredPrompt.prompt();
+                window.deferredPrompt.userChoice.then(function(choiceResult) {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    } else {
+                        console.log('User dismissed the install prompt');
+                    }
+                    window.deferredPrompt = null;
+                });
+            }
+        });
+        
+        // Hide install button if PWA is already installed
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            installBtn.style.display = 'none';
+        }
+    }
+    
+    // Data structure filter buttons
+    dataStructureButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            dataStructureButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            currentProblemFilters.dataStructure = this.id;
+            filterAndDisplayProblems();
+        });
+    });
+    
+    // Difficulty filter buttons
+    difficultyButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            difficultyButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            currentProblemFilters.difficulty = this.id;
+            filterAndDisplayProblems();
+        });
+    });
+    
+    // Search input
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            currentProblemFilters.search = this.value.toLowerCase();
+            filterAndDisplayProblems();
+        });
+    }
+    
+    // Load more button
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', function() {
+            loadMoreProblems();
+        });
+    }
+    
+    // Load initial problems
+    fetchProblems();
+}
+
+async function fetchProblems() {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    
+    try {
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'block';
+        }
+        
+        // Check for cached problems and their validity
+        const cachedProblems = localStorage.getItem('cachedProblems');
+        const lastFetchTime = localStorage.getItem('problemsFetchTime');
+        const now = new Date().getTime();
+        const CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours cache
+        
+        // Use cached data if available and not expired
+        if (cachedProblems && lastFetchTime && (now - parseInt(lastFetchTime) < CACHE_DURATION)) {
+            problemsData = JSON.parse(cachedProblems);
+            filterAndDisplayProblems();
+            console.log("Using cached problems data");
+            return;
+        }
+        
+        // If no valid cache, fetch from API
+        const response = await fetch('https://codeforces.com/api/problemset.problems');
+        const data = await response.json();
+        
+        if (data.status === 'OK') {
+            problemsData = data.result.problems;
+            
+            // Cache the problems data
+            localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
+            localStorage.setItem('problemsFetchTime', now.toString());
+            
+            filterAndDisplayProblems();
+        } else {
+            throw new Error('Failed to fetch problems');
+        }
+    } catch (error) {
+        console.error('Error fetching problems:', error);
+        if (loadingIndicator) {
+            loadingIndicator.innerHTML = 'Failed to load problems. Please try again later.';
+        }
+    } finally {
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+    }
+}
+
+function filterAndDisplayProblems() {
+    // Filter problems based on current filters
+    filteredProblems = problemsData.filter(problem => {
+        // Data structure filter
+        const tags = problem.tags || [];
+        const dataStructureMatch = checkDataStructureMatch(tags, currentProblemFilters.dataStructure);
+        
+        // Difficulty filter
+        const difficultyMatch = checkProblemDifficultyMatch(problem, currentProblemFilters.difficulty);
+        
+        // Search filter
+        const searchMatch = currentProblemFilters.search === '' || 
+            problem.name.toLowerCase().includes(currentProblemFilters.search) ||
+            tags.some(tag => tag.toLowerCase().includes(currentProblemFilters.search));
+        
+        return dataStructureMatch && difficultyMatch && searchMatch;
+    });
+    
+    // Sort problems by rating in ascending order
+    filteredProblems.sort((a, b) => {
+        // Handle problems with no rating
+        const ratingA = a.rating || 0;
+        const ratingB = b.rating || 0;
+        return ratingA - ratingB;
+    });
+    
+    // Reset pagination
+    currentProblemsPage = 0;
+    
+    // Show loading indicator
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'block';
+    }
+    
+    // Clear current problems list
+    const problemsList = document.getElementById('problemsList');
+    if (problemsList) {
+        problemsList.innerHTML = '';
+    }
+    
+    // Display first page
+    setTimeout(() => {
+        displayProblems();
+    }, 100); // Small delay to ensure DOM updates properly
+}
+
+function checkDataStructureMatch(tags, dataStructure) {
+    const tagString = tags.join(' ').toLowerCase();
+    
+    switch(dataStructure) {
+        case 'array':
+            return tags.some(tag => 
+                tag.toLowerCase().includes('implementation') ||
+                tag.toLowerCase().includes('prefix') || 
+                tag.toLowerCase().includes('suffix') || 
+                tag.toLowerCase().includes('two pointers') || 
+                tag.toLowerCase().includes('sorting')
+            );
+        case 'linkedlist':
+            return tags.some(tag => 
+                tag.toLowerCase().includes('simulation') || 
+                (tag.toLowerCase().includes('implementation') && tagString.includes('pointer'))
+            );
+        case 'tree':
+            return tags.some(tag => 
+                tag.toLowerCase().includes('trees') ||
+                tag.toLowerCase().includes('dfs') ||
+                tag.toLowerCase().includes('binary search') ||
+                tag.toLowerCase().includes('segment tree') ||
+                tag.toLowerCase().includes('tree')
+            );
+        case 'graph':
+            return tags.some(tag => 
+                tag.toLowerCase().includes('graphs') ||
+                tag.toLowerCase().includes('bfs') ||
+                tag.toLowerCase().includes('dfs') ||
+                tag.toLowerCase().includes('shortest path') ||
+                tag.toLowerCase().includes('connected component')
+            );
+        case 'string':
+            return tags.some(tag => 
+                tag.toLowerCase().includes('strings') ||
+                tag.toLowerCase().includes('hashing') ||
+                tag.toLowerCase().includes('palindrome') ||
+                tag.toLowerCase().includes('suffix array')
+            );
+        case 'dp':
+            return tags.some(tag => 
+                tag.toLowerCase().includes('dp') ||
+                tag.toLowerCase().includes('dynamic programming') ||
+                tag.toLowerCase().includes('digit dp') ||
+                tag.toLowerCase().includes('knapsack') ||
+                tag.toLowerCase().includes('memoization')
+            );
+        case 'math':
+            return tags.some(tag => 
+                tag.toLowerCase().includes('math') ||
+                tag.toLowerCase().includes('number theory') ||
+                tag.toLowerCase().includes('combinatorics') ||
+                tag.toLowerCase().includes('probabilities')
+            );
+        case 'greedy':
+            return tags.some(tag => 
+                tag.toLowerCase().includes('greedy') ||
+                tag.toLowerCase().includes('constructive algorithm')
+            );
+        default:
+            return true;
+    }
+}
+
+function checkProblemDifficultyMatch(problem, difficulty) {
+    const rating = problem.rating || 0;
+    
+    switch(difficulty) {
+        case 'easy':
+            return rating >= 800 && rating <= 1299;
+        case 'medium':
+            return rating >= 1300 && rating <= 1799;
+        case 'hard':
+            return rating >= 1800;
+        default:
+            return true;
+    }
+}
+
+function displayProblems() {
+    const problemsList = document.getElementById('problemsList');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    
+    if (!problemsList) return;
+    
+    // Hide loading indicator once problems are ready to display
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+    }
+    
+    const startIndex = currentProblemsPage * PROBLEMS_PER_PAGE;
+    const endIndex = startIndex + PROBLEMS_PER_PAGE;
+    const problemsToShow = filteredProblems.slice(startIndex, endIndex);
+    
+    problemsToShow.forEach(problem => {
+        const problemElement = createProblemElement(problem);
+        problemsList.appendChild(problemElement);
+    });
+    
+    // Show/hide load more button
+    if (loadMoreBtn) {
+        if (endIndex < filteredProblems.length) {
+            loadMoreBtn.style.display = 'block';
+        } else {
+            loadMoreBtn.style.display = 'none';
+        }
+    }
+}
+
+function loadMoreProblems() {
+    currentProblemsPage++;
+    displayProblems();
+}
+
+function createProblemElement(problem) {
+    const problemDiv = document.createElement('div');
+    problemDiv.className = 'problem-item';
+    
+    const difficultyClass = getDifficultyClass(problem.rating);
+    let difficultyText = getDifficultyText(problem.rating);
+    
+    // Color code the difficulty rating based on class
+    if (difficultyClass === 'easy') {
+        difficultyText = `<span style="color: #10b981">${difficultyText}</span>`;
+    } else if (difficultyClass === 'medium') {
+        difficultyText = `<span style="color: #f59e0b">${difficultyText}</span>`;
+    } else if (difficultyClass === 'hard') {
+        difficultyText = `<span style="color: #ef4444">${difficultyText}</span>`;
+    }
+    
+    // Limit tags to 2 to prevent overflow
+    const displayTags = problem.tags.slice(0, 2);
+    
+    problemDiv.innerHTML = `
+        <div class="problem-header">
+            <h3 class="problem-title">${problem.name}</h3>
+        </div>
+        <div class="problem-meta">
+            <span class="problem-id">${problem.contestId}${problem.index}</span>
+            <span class="problem-difficulty ${difficultyClass}">${difficultyText}</span>
+        </div>
+        <div class="problem-tags">
+            ${displayTags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+        </div>
+        <div class="problem-actions">
+            <button class="solve-btn" onclick="window.open('https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}', '_blank')">
+                Solve
+            </button>
+        </div>
+    `;
+    
+    return problemDiv;
+}
+
+function getDifficultyClass(rating) {
+    if (!rating) return 'unrated';
+    if (rating >= 800 && rating <= 1299) return 'easy';
+    if (rating >= 1300 && rating <= 1799) return 'medium';
+    if (rating >= 1800) return 'hard';
+    return 'unrated';
+}
+
+function getDifficultyText(rating) {
+    if (!rating) return 'Unrated';
+    return rating.toString();
+}
+
+// Page initialization based on location
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize the appropriate page
+    if (window.location.pathname.includes('problems.html')) {
+        // We're on the problems page - initialization already handled
+    } else {
+        // We're on the home page - additional initializations can go here
+    }
+});

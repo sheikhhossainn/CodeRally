@@ -28,11 +28,15 @@
     <body>
         <div class="container">
             <header>
-                <div class="header-left">
-                    <h2 class="logo">CodeRally</h2>
-                </div>
-                <div class="header-right">
-                    <button id="installBtn">Install App</button>
+                <a href="index.html" class="logo">CodeRally</a>
+                <div class="nav-buttons">
+                    <button id="installBtn" class="install-btn" aria-label="Install App">
+                        <span class="install-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                            </svg>
+                        </span>
+                    </button>
                     <button id="notificationBtn" class="notification-button" aria-label="Toggle Notifications">
                         <span class="notification-icon">🔔</span>
                         <span class="notification-status"></span>
@@ -41,7 +45,17 @@
             </header>
 
             <main>
-                <h1>Track Programming Contests</h1>
+                <div class="hero-section">
+                    <h1 class="main-title">Your Coding Playground</h1>
+                    <h2 class="subtitle">Track, Solve, Win.</h2>
+                    
+                    <div class="action-buttons">
+                        <a href="#contests" class="action-btn primary-btn" id="trackContestsBtn">Track Contests</a>
+                        <a href="problems.html" class="action-btn secondary-btn">Explore Problems</a>
+                    </div>
+                </div>
+
+                <h2 id="contests" class="section-title">Track Programming Contests</h2>
 
                 <p>Platform</p>
                 <button id="codeforces">Codeforces</button>

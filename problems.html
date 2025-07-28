@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="problems-styles.css">
+        <title>CodeRally - Problems</title>
+        
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="manifest.json">
+        <meta name="theme-color" content="#4a90e2">
+        <meta name="description" content="Browse Codeforces problems">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="CodeRally">
+        
+        <!-- PWA Icons -->
+        <link rel="icon" href="icon-1024.ico" type="image/x-icon">
+        <link rel="icon" href="icon-512.ico" type="image/x-icon" sizes="512x512">
+        <link rel="icon" href="icon-192.ico" type="image/x-icon" sizes="192x192">
+        <link rel="icon" href="icon-1024.png" type="image/png" sizes="1024x1024">
+        <link rel="icon" href="icon-512.png" type="image/png" sizes="512x512">
+        <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
+        <link rel="apple-touch-icon" href="icon-1024.png">
+        <link rel="apple-touch-icon" href="icon-512.png" sizes="512x512">
+    </head>
+
+    <body>
+        <div class="container">
+            <header>
+                <a href="index.html" class="logo">CodeRally</a>
+            </header>
+
+            <main>
+                <h1>Codeforces Problems</h1>
+
+                <div class="filters-container">
+                    <div class="filters-section">
+                        <p>Category</p>
+                        <div class="buttons-row">
+                            <button id="array" class="active">Array</button>
+                            <button id="linkedlist">Linked List</button>
+                            <button id="tree">Tree</button>
+                            <button id="graph">Graph</button>
+                            <button id="string">String</button>
+                            <button id="dp">DP</button>
+                            <button id="math">Math</button>
+                            <button id="greedy">Greedy</button>
+                        </div>
+                    </div>
+
+                    <div class="filters-section">
+                        <p>Difficulty</p>
+                        <div class="buttons-row">
+                            <button id="easy" class="active">Easy (800-1299)</button>
+                            <button id="medium">Medium (1300-1799)</button>
+                            <button id="hard">Hard (1800+)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="search-section">
+                    <input type="text" id="searchInput" placeholder="Search problems using problem's name....." class="search-input">
+                </div>
+
+                <div id="loadingIndicator" class="loading">Loading problems...</div>
+                <div id="problemsList" class="problems-list">
+                    <!-- Problems will be dynamically added here -->
+                </div>
+
+                <div class="load-more-section">
+                    <button id="loadMoreBtn" class="load-more-btn" style="display: none;">Load More</button>
+                </div>
+            </main>
+        </div>
+        <script src="script.js?v=7"></script>
+    </body>
+</html>
