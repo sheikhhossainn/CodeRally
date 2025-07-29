@@ -1348,7 +1348,16 @@ function initProblemsPage() {
 async function testDirectAPI() {
     console.log('=== TESTING DIRECT API ACCESS ===');
     try {
-        const testResponse = await fetch('https://codeforces.com/api/problemset.problems');
+        // Add timeout to test API call
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout for test
+        
+        const testResponse = await fetch('https://codeforces.com/api/problemset.problems', {
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
         console.log('Direct API test response:', testResponse.status, testResponse.statusText);
         console.log('Response ok:', testResponse.ok);
         
