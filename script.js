@@ -321,7 +321,7 @@ if ('serviceWorker' in navigator) {
             }
             
             // Register service worker with simple approach
-            const SW_VERSION = '20250729-7'; // Match with service worker VERSION
+            const SW_VERSION = '20250729-9'; // Match with service worker VERSION
             const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + SW_VERSION, {
                 updateViaCache: 'none'
             });
@@ -1159,28 +1159,61 @@ function generateBackupProblems() {
 
 // Check if we're on the problems page
 if (window.location.pathname.includes('problems.html')) {
+    // Clear any problematic cache
+    if ('caches' in window) {
+        caches.keys().then(names => {
+            console.log('Available cache names:', names);
+        });
+    }
+    
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOMContentLoaded fired for problems page');
         initProblemsPage();
     });
 }
 
 function initProblemsPage() {
+    console.log('=== PROBLEMS PAGE INITIALIZATION ===');
     console.log('initProblemsPage() called - starting problems page initialization');
+    console.log('Current URL:', window.location.href);
+    console.log('Document ready state:', document.readyState);
     
     const dataStructureButtons = document.querySelectorAll('#array, #linkedlist, #tree, #graph, #string, #dp, #math, #greedy');
     const difficultyButtons = document.querySelectorAll('#easy, #medium, #hard');
     const searchInput = document.getElementById('searchInput');
     const loadMoreBtn = document.getElementById('loadMoreBtn');
     const installBtn = document.getElementById('installBtn');
+    const problemsList = document.getElementById('problemsList');
+    const loadingIndicator = document.getElementById('loadingIndicator');
     
-    console.log('Found dataStructureButtons:', dataStructureButtons.length);
-    console.log('Found difficultyButtons:', difficultyButtons.length);
-    console.log('Found searchInput:', !!searchInput);
-    console.log('Found loadMoreBtn:', !!loadMoreBtn);
+    console.log('DOM Elements found:');
+    console.log('- dataStructureButtons:', dataStructureButtons.length);
+    console.log('- difficultyButtons:', difficultyButtons.length);
+    console.log('- searchInput:', !!searchInput);
+    console.log('- loadMoreBtn:', !!loadMoreBtn);
+    console.log('- problemsList:', !!problemsList);
+    console.log('- loadingIndicator:', !!loadingIndicator);
+    
+    // Test if we can modify the loading indicator
+    if (loadingIndicator) {
+        loadingIndicator.innerHTML = 'Initializing problems page...';
+        console.log('✅ Successfully updated loading indicator');
+    } else {
+        console.error('❌ Loading indicator not found!');
+        return;
+    }
     
     // Initialize with "array" and "easy" as active
-    document.getElementById('array').classList.add('active');
-    document.getElementById('easy').classList.add('active');
+    const arrayBtn = document.getElementById('array');
+    const easyBtn = document.getElementById('easy');
+    
+    if (arrayBtn && easyBtn) {
+        arrayBtn.classList.add('active');
+        easyBtn.classList.add('active');
+        console.log('✅ Set default active buttons');
+    } else {
+        console.error('❌ Could not find array or easy buttons');
+    }
     
     // Install button functionality
     if (installBtn) {
@@ -1242,8 +1275,37 @@ function initProblemsPage() {
     
     // Load initial problems
     console.log('About to call fetchProblems()');
+    
+    // Add a simple test first
+    testDirectAPI();
+    
     fetchProblems();
     console.log('fetchProblems() call completed');
+}
+
+// Simple test function to check API directly
+async function testDirectAPI() {
+    console.log('=== TESTING DIRECT API ACCESS ===');
+    try {
+        const testResponse = await fetch('https://codeforces.com/api/problemset.problems', {
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-cache'
+        });
+        console.log('Direct API test response:', testResponse.status, testResponse.statusText);
+        console.log('Response ok:', testResponse.ok);
+        
+        if (testResponse.ok) {
+            const testData = await testResponse.json();
+            console.log('✅ Direct API test successful!');
+            console.log('Sample data:', {
+                status: testData.status,
+                problemCount: testData.result?.problems?.length || 0
+            });
+        }
+    } catch (error) {
+        console.error('❌ Direct API test failed:', error);
+    }
 }
 
 async function fetchProblems() {
@@ -1286,6 +1348,11 @@ async function fetchProblems() {
         
         console.log('=== No valid cache, attempting to fetch from API ===');
         
+        // Disable service worker for this request if it's causing issues
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            console.log('Service worker is active, may be interfering with requests');
+        }
+        
         // SIMPLE DIRECT FETCH TEST
         console.log('Testing direct fetch to Codeforces API...');
         const apiUrl = 'https://codeforces.com/api/problemset.problems';
@@ -1296,10 +1363,12 @@ async function fetchProblems() {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (compatible; CodeRally)',
             },
             // Add these to help with debugging
             cache: 'no-cache',
-            mode: 'cors'
+            mode: 'cors',
+            credentials: 'omit'
         });
         
         const fetchEndTime = performance.now();
@@ -1375,12 +1444,18 @@ async function fetchProblems() {
         
         if (loadingIndicator) {
             const backupType = problemsData.length > 5 ? 'cached problems' : 'sample problems';
-            loadingIndicator.innerHTML = `Using ${backupType} (API error: ${error.message})`;
+            loadingIndicator.innerHTML = `
+                Using ${backupType} (API error: ${error.message})
+                <br>
+                <button onclick="location.reload()" style="margin-top: 10px; padding: 5px 10px; background: #4a90e2; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Retry Loading
+                </button>
+            `;
             setTimeout(() => {
-                if (loadingIndicator) {
+                if (loadingIndicator && !loadingIndicator.innerHTML.includes('Retry Loading')) {
                     loadingIndicator.style.display = 'none';
                 }
-            }, 3000);
+            }, 5000);
         }
     }
 }
