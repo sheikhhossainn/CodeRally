@@ -40,6 +40,43 @@ header {
     letter-spacing: -0.5px;
 }
 
+/* Header buttons container and notification button styles */
+.header-buttons {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.notification-button {
+    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: 8px 12px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.notification-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(74, 144, 226, 0.4);
+}
+
+.notification-button.clicked {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+}
+
+.notification-icon {
+    font-size: 16px;
+}
+
 .nav-buttons {
     display: flex;
     gap: 20px;

@@ -1206,6 +1206,13 @@ function initProblemsPage() {
     if (loadingIndicator) {
         loadingIndicator.innerHTML = 'Initializing problems page...';
         console.log('✅ Successfully updated loading indicator');
+        
+        // Add debugging info
+        setTimeout(() => {
+            if (loadingIndicator.innerHTML === 'Initializing problems page...') {
+                loadingIndicator.innerHTML = 'Checking for problems data...';
+            }
+        }, 1000);
     } else {
         console.error('❌ Loading indicator not found!');
         return;
@@ -1281,8 +1288,45 @@ function initProblemsPage() {
         });
     }
     
+    // Initialize notification button state
+    updateNotificationButtonState();
+    
+    // Notification button functionality for problems page
+    const notificationBtn = document.getElementById('notificationBtn');
+    if (notificationBtn) {
+        notificationBtn.addEventListener('click', async (event) => {
+            event.preventDefault();
+            
+            if (notificationBtn.dataset.processing === 'true') {
+                return;
+            }
+            
+            notificationBtn.dataset.processing = 'true';
+            
+            try {
+                notificationBtn.classList.add('clicked');
+                await toggleNotifications();
+                updateNotificationButtonState();
+            } catch (error) {
+                console.error('Error toggling notifications:', error);
+                updateNotificationButtonState();
+            } finally {
+                setTimeout(() => {
+                    notificationBtn.classList.remove('clicked');
+                    notificationBtn.dataset.processing = 'false';
+                }, 300);
+            }
+        });
+        console.log('✅ Notification button event listener added');
+    }
+    
     // Load initial problems
     console.log('About to call fetchProblems()');
+    
+    // Add debugging - check if this function is even reached
+    if (loadingIndicator) {
+        loadingIndicator.innerHTML = 'Starting API request...';
+    }
     
     // Add a simple test first - wrap in async function
     (async () => {
@@ -1290,6 +1334,9 @@ function initProblemsPage() {
         
         // Only call fetchProblems if test didn't already load data
         if (!testSuccess) {
+            if (loadingIndicator) {
+                loadingIndicator.innerHTML = 'Direct API test failed, trying full fetch...';
+            }
             fetchProblems();
         }
         
@@ -1386,8 +1433,16 @@ async function fetchProblems() {
         
         const fetchStartTime = performance.now();
         
+        // Add timeout to fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
         // Use a simple fetch without extra headers that might cause CORS issues
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, {
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
         
         const fetchEndTime = performance.now();
         console.log(`Fetch completed in ${fetchEndTime - fetchStartTime} milliseconds`);
