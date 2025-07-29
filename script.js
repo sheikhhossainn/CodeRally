@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if running in standalone mode (already installed)
         if (window.matchMedia('(display-mode: standalone)').matches || 
             window.navigator.standalone === true) {
-            installBtn.innerHTML = '<span class="install-icon">✓</span>';
+            installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>';
             installBtn.title = 'App Installed';
             installBtn.disabled = true;
             return true;
@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             deferredPrompt = e;
             isPWAInstallable = true;
-            installBtn.innerHTML = '<span class="install-icon">⬇️</span>';
+            installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg></span>';
             installBtn.title = 'Install App';
         });
     }
@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
             if (outcome === 'accepted') {
-                installBtn.innerHTML = '<span class="install-icon">✓</span>';
+                installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>';
                 installBtn.title = 'App Installed';
                 installBtn.disabled = true;
             }
@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Check if app is already installed
     window.addEventListener('appinstalled', () => {
-        installBtn.innerHTML = '<span class="install-icon">✓</span>';
+        installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>';
         installBtn.title = 'App Installed';
         installBtn.disabled = true;
     });
@@ -321,7 +321,7 @@ if ('serviceWorker' in navigator) {
             }
             
             // Register service worker with simple approach
-            const SW_VERSION = '20250729-5'; // Match with service worker VERSION
+            const SW_VERSION = '20250729-6'; // Match with service worker VERSION
             const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + SW_VERSION, {
                 updateViaCache: 'none'
             });
