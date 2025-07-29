@@ -12,6 +12,10 @@ let currentDifficulty = 'easy'; // Add difficulty filter state
 // Service worker registration for push notifications
 let swRegistration = null;
 
+// Variables for update detection
+let updateAvailable = false;
+let refreshingPage = false;
+
 // Function to get display limit based on screen size
 function getDisplayLimit() {
     return window.innerWidth <= 768 ? 4 : 8; // 4 for mobile, 8 for desktop
@@ -241,29 +245,99 @@ document.addEventListener('DOMContentLoaded', function() {
     fetchData();
 });
 
-// Register Service Worker for PWA with auto-update and push support
+// Register Service Worker for PWA with aggressive auto-update and push support
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            const registration = await navigator.serviceWorker.register('./serviceWorker.js');
+            // Add timestamp to prevent registration caching
+            const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + new Date().getTime());
             console.log('Service Worker registered successfully');
             swRegistration = registration;
             
-            // Check for updates every 30 seconds
+            // Create a toast notification system for updates
+            const createUpdateToast = () => {
+                if (document.getElementById('update-toast')) return;
+                
+                const toast = document.createElement('div');
+                toast.id = 'update-toast';
+                toast.style.position = 'fixed';
+                toast.style.bottom = '20px';
+                toast.style.left = '50%';
+                toast.style.transform = 'translateX(-50%)';
+                toast.style.backgroundColor = '#4a90e2';
+                toast.style.color = 'white';
+                toast.style.padding = '12px 20px';
+                toast.style.borderRadius = '8px';
+                toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                toast.style.zIndex = '9999';
+                toast.style.display = 'flex';
+                toast.style.alignItems = 'center';
+                toast.style.justifyContent = 'space-between';
+                toast.style.gap = '10px';
+                
+                const message = document.createElement('span');
+                message.textContent = 'New content available!';
+                
+                const refreshButton = document.createElement('button');
+                refreshButton.textContent = 'Refresh';
+                refreshButton.style.backgroundColor = 'white';
+                refreshButton.style.color = '#4a90e2';
+                refreshButton.style.border = 'none';
+                refreshButton.style.padding = '6px 12px';
+                refreshButton.style.borderRadius = '4px';
+                refreshButton.style.cursor = 'pointer';
+                refreshButton.style.fontWeight = 'bold';
+                
+                refreshButton.addEventListener('click', () => {
+                    if (!refreshingPage) {
+                        refreshingPage = true;
+                        // Clear cache in localStorage
+                        localStorage.removeItem('contestsCache');
+                        localStorage.removeItem('lastFetchTime');
+                        // Force clear browser cache before reload
+                        if (caches) {
+                            caches.keys().then(names => {
+                                names.forEach(name => {
+                                    caches.delete(name);
+                                });
+                            });
+                        }
+                        window.location.reload(true);
+                    }
+                });
+                
+                toast.appendChild(message);
+                toast.appendChild(refreshButton);
+                document.body.appendChild(toast);
+            };
+            
+            // Check for updates every 15 seconds (more frequent)
             setInterval(() => {
-                registration.update();
-            }, 30000);
+                if (!refreshingPage) {
+                    registration.update().catch(err => console.log('Update check failed:', err));
+                }
+            }, 15000);
             
             // Listen for service worker updates
             registration.addEventListener('updatefound', () => {
                 const newWorker = registration.installing;
                 newWorker.addEventListener('statechange', () => {
                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        // New content available, refresh the page
-                        console.log('New content available, refreshing...');
-                        window.location.reload();
+                        // New content available
+                        console.log('New content available!');
+                        updateAvailable = true;
+                        createUpdateToast();
                     }
                 });
+            });
+            
+            // Listen for messages from service worker
+            navigator.serviceWorker.addEventListener('message', event => {
+                if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
+                    console.log('Update notification from SW:', event.data);
+                    updateAvailable = true;
+                    createUpdateToast();
+                }
             });
             
             // Initialize notification status if user had previously enabled it

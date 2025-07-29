@@ -1,5 +1,18 @@
-const CACHE_NAME = 'coderally-v15';
-const urlsToCache = [
+// Use timestamp for automatic version updates
+const VERSION_TIMESTAMP = new Date().getTime();
+const CACHE_NAME = 'coderally-v16-' + VERSION_TIMESTAMP;
+
+// Add query params to bust cache
+const addVersionParam = (url) => {
+  // Don't add version to external URLs or image files
+  if (url.startsWith('http') || url.match(/\.(png|ico|svg)$/)) {
+    return url;
+  }
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}v=${VERSION_TIMESTAMP}`;
+};
+
+const resourcesToPrecache = [
   './',
   './index.html',
   './problems.html',
@@ -16,6 +29,9 @@ const urlsToCache = [
   './icon-192.png'
 ];
 
+// Apply cache busting to each URL
+const urlsToCache = resourcesToPrecache.map(url => addVersionParam(url));
+
 // Install event
 self.addEventListener('install', (event) => {
   // Skip waiting to activate new service worker immediately
@@ -30,46 +46,90 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Fetch event with offline support
+// Fetch event with offline support and cache refresh strategy
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Return cached version if available
-        if (response) {
-          return response;
-        }
-        
-        // Otherwise try to fetch from network
-        return fetch(event.request)
-          .then((networkResponse) => {
-            // If successful, clone and cache the response
-            if (networkResponse && networkResponse.status === 200) {
-              const responseToCache = networkResponse.clone();
-              caches.open(CACHE_NAME)
-                .then((cache) => {
+  const requestURL = new URL(event.request.url);
+  
+  // Special handling for HTML, CSS, and JS files - network-first approach
+  if (requestURL.pathname.endsWith('.html') || 
+      requestURL.pathname.endsWith('.css') || 
+      requestURL.pathname.endsWith('.js') || 
+      requestURL.pathname === '/' || 
+      requestURL.pathname === '') {
+    
+    // Use a network-first strategy for key application resources
+    event.respondWith(
+      fetch(event.request)
+        .then(networkResponse => {
+          // Clone the response to cache it
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, responseToCache);
+          });
+          return networkResponse;
+        })
+        .catch(() => {
+          // Fall back to cache if network fails
+          return caches.match(event.request)
+            .then(cachedResponse => {
+              if (cachedResponse) {
+                return cachedResponse;
+              }
+              // If not in cache, try offline page for navigation
+              if (event.request.mode === 'navigate') {
+                return caches.match('./offline.html');
+              }
+              return new Response('Network error occurred', { status: 408 });
+            });
+        })
+    );
+  } else {
+    // For other resources, use cache-first strategy
+    event.respondWith(
+      caches.match(event.request)
+        .then(cachedResponse => {
+          if (cachedResponse) {
+            // Still fetch in the background to update cache
+            fetch(event.request)
+              .then(networkResponse => {
+                if (networkResponse && networkResponse.status === 200) {
+                  caches.open(CACHE_NAME).then(cache => {
+                    cache.put(event.request, networkResponse.clone());
+                  });
+                }
+              })
+              .catch(() => {/* ignore network errors */});
+              
+            return cachedResponse;
+          }
+          
+          // Not in cache, fetch from network
+          return fetch(event.request)
+            .then(networkResponse => {
+              if (networkResponse && networkResponse.status === 200) {
+                const responseToCache = networkResponse.clone();
+                caches.open(CACHE_NAME).then(cache => {
                   cache.put(event.request, responseToCache);
                 });
-            }
-            return networkResponse;
-          })
-          .catch(() => {
-            // If both cache and network fail, serve offline page for navigation requests
-            if (event.request.mode === 'navigate') {
-              return caches.match('./offline.html');
-            }
-            
-            // Return nothing for other resource types (will show as failed in the network)
-            return new Response('', {
-              status: 408,
-              statusText: 'Request timed out.'
+              }
+              return networkResponse;
+            })
+            .catch(() => {
+              // If both cache and network fail
+              if (event.request.mode === 'navigate') {
+                return caches.match('./offline.html');
+              }
+              return new Response('', {
+                status: 408,
+                statusText: 'Request timed out.'
+              });
             });
-          });
-      })
-  );
+        })
+    );
+  }
 });
 
-// Activate event
+// Activate event with aggressive cache cleanup
 self.addEventListener('activate', (event) => {
   // Take control of all clients immediately
   self.clients.claim();
@@ -83,7 +143,18 @@ self.addEventListener('activate', (event) => {
             return caches.delete(cacheName);
           }
         })
-      );
+      ).then(() => {
+        // After clearing old caches, notify clients about the update
+        return self.clients.matchAll().then(clients => {
+          return Promise.all(clients.map(client => {
+            // Send a message to each client that an update is available
+            return client.postMessage({
+              type: 'UPDATE_AVAILABLE',
+              timestamp: VERSION_TIMESTAMP
+            });
+          }));
+        });
+      });
     })
   );
 });
