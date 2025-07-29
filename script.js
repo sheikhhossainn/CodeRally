@@ -1255,7 +1255,9 @@ async function fetchProblems() {
             loadingIndicator.innerHTML = 'Loading problems...';
         }
         
-        console.log('fetchProblems() called');
+        console.log('=== fetchProblems() called ===');
+        console.log('Current URL:', window.location.href);
+        console.log('Navigator online:', navigator.onLine);
         
         // Check for cached problems and their validity
         const cachedProblems = localStorage.getItem('cachedProblems');
@@ -1263,10 +1265,18 @@ async function fetchProblems() {
         const now = new Date().getTime();
         const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours cache (problems don't change often)
         
+        console.log('Cache check:', {
+            hasCachedProblems: !!cachedProblems,
+            lastFetchTime: lastFetchTime,
+            cacheAge: lastFetchTime ? now - parseInt(lastFetchTime) : 'N/A',
+            cacheValid: cachedProblems && lastFetchTime && (now - parseInt(lastFetchTime) < CACHE_DURATION)
+        });
+        
         // Use cached data if available and not expired
         if (cachedProblems && lastFetchTime && (now - parseInt(lastFetchTime) < CACHE_DURATION)) {
             console.log('Using cached problems data');
             problemsData = JSON.parse(cachedProblems);
+            console.log('Cached problems loaded:', problemsData.length);
             filterAndDisplayProblems();
             if (loadingIndicator) {
                 loadingIndicator.style.display = 'none';
@@ -1274,94 +1284,103 @@ async function fetchProblems() {
             return;
         }
         
-        console.log('No valid cache, attempting to fetch from API...');
+        console.log('=== No valid cache, attempting to fetch from API ===');
         
-        // Try to fetch from Codeforces API directly first
-        let response;
-        let data;
+        // SIMPLE DIRECT FETCH TEST
+        console.log('Testing direct fetch to Codeforces API...');
+        const apiUrl = 'https://codeforces.com/api/problemset.problems';
+        console.log('API URL:', apiUrl);
         
-        try {
-            console.log("Fetching problems from Codeforces API...");
-            response = await fetch('https://codeforces.com/api/problemset.problems');
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            data = await response.json();
-            console.log('Direct API success:', data);
-        } catch (directError) {
-            console.log("Direct API failed, trying CORS proxy...", directError);
-            
-            // Fallback to CORS proxy
-            try {
-                const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems');
-                console.log('Trying proxy:', proxyUrl);
-                response = await fetch(proxyUrl);
-                
-                if (!response.ok) {
-                    throw new Error(`Proxy HTTP error! status: ${response.status}`);
-                }
-                
-                const proxyData = await response.json();
-                data = JSON.parse(proxyData.contents);
-                console.log('Proxy API success:', data);
-            } catch (proxyError) {
-                console.log("Primary proxy failed:", proxyError);
-                throw proxyError; // Skip the secondary proxy for now to test faster
-            }
+        const fetchStartTime = performance.now();
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            },
+            // Add these to help with debugging
+            cache: 'no-cache',
+            mode: 'cors'
+        });
+        
+        const fetchEndTime = performance.now();
+        console.log(`Fetch completed in ${fetchEndTime - fetchStartTime} milliseconds`);
+        console.log('Response status:', response.status);
+        console.log('Response statusText:', response.statusText);
+        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
         }
+        
+        console.log('Converting response to JSON...');
+        const data = await response.json();
+        console.log('JSON parsing completed');
+        console.log('API Response structure:', {
+            status: data.status,
+            hasResult: !!data.result,
+            hasProblems: !!(data.result && data.result.problems),
+            problemCount: data.result && data.result.problems ? data.result.problems.length : 0
+        });
         
         if (data && data.status === 'OK' && data.result && data.result.problems) {
             problemsData = data.result.problems;
             
-            // Cache the problems data with extended duration
+            // Cache the problems data
             localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
             localStorage.setItem('problemsFetchTime', now.toString());
             
-            console.log(`Fetched ${problemsData.length} problems successfully`);
+            console.log(`✅ Successfully fetched ${problemsData.length} problems from API`);
+            console.log('Sample problem:', problemsData[0]);
+            
             filterAndDisplayProblems();
         } else {
-            throw new Error('Invalid API response structure');
+            throw new Error(`Invalid API response structure. Status: ${data?.status}, Result: ${!!data?.result}`);
         }
+        
     } catch (error) {
-        console.error('Error fetching problems:', error);
+        console.error('=== ERROR in fetchProblems ===');
+        console.error('Error type:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Full error:', error);
+        console.error('Stack trace:', error.stack);
         
         // Try to use any cached data as fallback, even if expired
         const cachedProblems = localStorage.getItem('cachedProblems');
         if (cachedProblems) {
-            console.log("Using expired cached data as fallback");
-            problemsData = JSON.parse(cachedProblems);
-            filterAndDisplayProblems();
-            
-            if (loadingIndicator) {
-                loadingIndicator.innerHTML = 'Using cached data (may be outdated)';
-                setTimeout(() => {
-                    if (loadingIndicator) {
-                        loadingIndicator.style.display = 'none';
-                    }
-                }, 2000);
-            }
-        } else {
-            // Use dynamic backup problems as last resort
-            console.log("Using dynamic backup problems data");
-            problemsData = generateBackupProblems();
-            filterAndDisplayProblems();
-            
-            if (loadingIndicator) {
-                const backupType = problemsData.length > 5 ? 'cached problems' : 'sample problems';
-                loadingIndicator.innerHTML = `Using ${backupType} (connection issues detected)`;
-                setTimeout(() => {
-                    if (loadingIndicator) {
-                        loadingIndicator.style.display = 'none';
-                    }
-                }, 3000);
+            console.log("🔄 Using expired cached data as fallback");
+            try {
+                problemsData = JSON.parse(cachedProblems);
+                console.log('Fallback cached problems loaded:', problemsData.length);
+                filterAndDisplayProblems();
+                
+                if (loadingIndicator) {
+                    loadingIndicator.innerHTML = 'Using cached data (API temporarily unavailable)';
+                    setTimeout(() => {
+                        if (loadingIndicator) {
+                            loadingIndicator.style.display = 'none';
+                        }
+                    }, 2000);
+                }
+                return;
+            } catch (parseError) {
+                console.error('Error parsing cached data:', parseError);
             }
         }
-    } finally {
-        // Only hide loading if we're not showing a message
-        if (loadingIndicator && !loadingIndicator.innerHTML.includes('cached data') && !loadingIndicator.innerHTML.includes('sample problems')) {
-            loadingIndicator.style.display = 'none';
+        
+        // Use dynamic backup problems as last resort
+        console.log("🆘 Using dynamic backup problems data");
+        problemsData = generateBackupProblems();
+        console.log('Backup problems loaded:', problemsData.length);
+        filterAndDisplayProblems();
+        
+        if (loadingIndicator) {
+            const backupType = problemsData.length > 5 ? 'cached problems' : 'sample problems';
+            loadingIndicator.innerHTML = `Using ${backupType} (API error: ${error.message})`;
+            setTimeout(() => {
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
+            }, 3000);
         }
     }
 }
