@@ -320,11 +320,17 @@ if ('serviceWorker' in navigator) {
                 console.log('Update completed successfully');
             }
             
-            // Register with cache busting but stable version (not random timestamp)
-            const SW_VERSION = '11'; // Increment this when you make changes
-            const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + SW_VERSION);
+            // Register with aggressive update checking
+            const SW_VERSION = '20250729-3'; // Match with service worker VERSION
+            const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + SW_VERSION, {
+                // This ensures the service worker is always updated
+                updateViaCache: 'none'
+            });
             console.log('Service Worker registered successfully');
             swRegistration = registration;
+            
+            // Force an immediate update check
+            registration.update();
             
             // Create a toast notification system for updates
             const createUpdateToast = () => {
@@ -373,13 +379,24 @@ if ('serviceWorker' in navigator) {
                 document.body.appendChild(toast);
             };
             
-            // Check for updates every 60 seconds (more reasonable interval)
+            // Check for updates frequently in the background
             setInterval(() => {
                 if (!refreshingPage && !isRefreshCycling()) {
                     console.log('Checking for service worker updates...');
                     registration.update().catch(err => console.log('Update check failed:', err));
                 }
-            }, 60000);
+            }, 30000);  // Every 30 seconds
+            
+            // Set up automatic update handling without user interaction
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshingPage) {
+                    console.log('Service worker controller changed - page will refresh automatically');
+                    // The service worker controller has changed, indicating an update
+                    // This event fires when skipWaiting() is called
+                    refreshingPage = true;
+                    // No need to do anything - the service worker will navigate all clients
+                }
+            });
             
             // Listen for service worker updates
             registration.addEventListener('updatefound', () => {

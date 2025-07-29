@@ -1,6 +1,6 @@
-// Use timestamp for automatic version updates
-const VERSION_TIMESTAMP = new Date().getTime();
-const CACHE_NAME = 'coderally-v16-' + VERSION_TIMESTAMP;
+// Use fixed version string to enable proper update detection
+const VERSION = '20250729-3';
+const CACHE_NAME = 'coderally-' + VERSION;
 
 // Add query params to bust cache
 const addVersionParam = (url) => {
@@ -9,7 +9,7 @@ const addVersionParam = (url) => {
     return url;
   }
   const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}v=${VERSION_TIMESTAMP}`;
+  return `${url}${separator}v=${VERSION}`;
 };
 
 const resourcesToPrecache = [
@@ -32,16 +32,20 @@ const resourcesToPrecache = [
 // Apply cache busting to each URL
 const urlsToCache = resourcesToPrecache.map(url => addVersionParam(url));
 
-// Install event
+// Install event with guaranteed skipWaiting
 self.addEventListener('install', (event) => {
-  // Skip waiting to activate new service worker immediately
-  self.skipWaiting();
+  console.log('Service Worker installing with version:', VERSION);
   
+  // Ensure the service worker takes control immediately
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Opened cache');
         return cache.addAll(urlsToCache);
+      })
+      .then(() => {
+        // This forces the waiting service worker to become active
+        return self.skipWaiting();
       })
   );
 });
@@ -129,12 +133,9 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Activate event with controlled cache cleanup
+// Activate event with automatic client refresh
 self.addEventListener('activate', (event) => {
-  // Take control of all clients immediately
-  self.clients.claim();
-  
-  // Only delete old caches, keep the current one
+  // Delete all old caches first
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -145,15 +146,14 @@ self.addEventListener('activate', (event) => {
           }
         })
       ).then(() => {
-        // After clearing old caches, notify clients about the update
-        return self.clients.matchAll().then(clients => {
+        // Take control of all clients AFTER cache deletion
+        return self.clients.claim();
+      }).then(() => {
+        // After taking control, automatically refresh all open windows
+        return self.clients.matchAll({ type: 'window' }).then(clients => {
           return Promise.all(clients.map(client => {
-            // Send a message to each client that an update is available
-            // but don't force refresh automatically
-            return client.postMessage({
-              type: 'UPDATE_AVAILABLE',
-              timestamp: VERSION_TIMESTAMP
-            });
+            // Don't just notify - actually reload all clients
+            return client.navigate(client.url);
           }));
         });
       });
