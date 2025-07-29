@@ -1079,8 +1079,6 @@ function checkDifficultyMatch(contest, difficulty) {
 
 // ==================== PROBLEMS PAGE FUNCTIONALITY ====================
 
-// ==================== PROBLEMS PAGE FUNCTIONALITY ====================
-
 // Problems page variables
 let problemsData = [];
 let filteredProblems = [];
@@ -1092,129 +1090,72 @@ let currentProblemFilters = {
     search: ''
 };
 
-// Backup problems data in case API fails completely
-const backupProblems = [
-    {
-        "contestId": 1,
-        "index": "A",
-        "name": "Theatre Square",
-        "type": "PROGRAMMING",
-        "rating": 1000,
-        "tags": ["math"]
-    },
-    {
-        "contestId": 4,
-        "index": "A",
-        "name": "Watermelon",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["brute force", "math"]
-    },
-    {
-        "contestId": 71,
-        "index": "A",
-        "name": "Way Too Long Words",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["strings"]
-    },
-    {
-        "contestId": 158,
-        "index": "A",
-        "name": "Next Round",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["implementation"]
-    },
-    {
-        "contestId": 231,
-        "index": "A",
-        "name": "Team",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["brute force", "greedy"]
-    },
-    {
-        "contestId": 282,
-        "index": "A",
-        "name": "Bit++",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["implementation"]
-    },
-    {
-        "contestId": 339,
-        "index": "A",
-        "name": "Helpful Maths",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["greedy", "implementation", "sortings", "strings"]
-    },
-    {
-        "contestId": 546,
-        "index": "A",
-        "name": "Soldier and Bananas",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["brute force", "implementation", "math"]
-    },
-    {
-        "contestId": 617,
-        "index": "A",
-        "name": "Elephant",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["math"]
-    },
-    {
-        "contestId": 677,
-        "index": "A",
-        "name": "Vanya and Fence",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["implementation"]
-    },
-    {
-        "contestId": 734,
-        "index": "A",
-        "name": "Anton and Danik",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["implementation", "strings"]
-    },
-    {
-        "contestId": 800,
-        "index": "A",
-        "name": "Voltage Keepsake",
-        "type": "PROGRAMMING",
-        "rating": 1600,
-        "tags": ["binary search", "math"]
-    },
-    {
-        "contestId": 977,
-        "index": "A",
-        "name": "Wrong Subtraction",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["implementation"]
-    },
-    {
-        "contestId": 1030,
-        "index": "A",
-        "name": "In Search of an Easy Problem",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["implementation"]
-    },
-    {
-        "contestId": 1154,
-        "index": "A",
-        "name": "Restoring Three Numbers",
-        "type": "PROGRAMMING",
-        "rating": 800,
-        "tags": ["math"]
+// Function to generate backup problems dynamically
+function generateBackupProblems() {
+    // Try to use a subset of cached problems first
+    const cachedProblems = localStorage.getItem('cachedProblems');
+    if (cachedProblems) {
+        try {
+            const allProblems = JSON.parse(cachedProblems);
+            // Select a diverse set of problems across different difficulty levels
+            const easyProblems = allProblems.filter(p => (p.rating || 0) <= 1200).slice(0, 10);
+            const mediumProblems = allProblems.filter(p => (p.rating || 0) > 1200 && (p.rating || 0) <= 1600).slice(0, 5);
+            const hardProblems = allProblems.filter(p => (p.rating || 0) > 1600).slice(0, 3);
+            
+            const diverseProblems = [...easyProblems, ...mediumProblems, ...hardProblems];
+            if (diverseProblems.length > 0) {
+                console.log('Using diverse cached problems as backup:', diverseProblems.length);
+                return diverseProblems;
+            }
+        } catch (error) {
+            console.log('Error parsing cached problems for backup:', error);
+        }
     }
-];
+    
+    // Fallback to minimal hardcoded problems only when absolutely necessary
+    return [
+        {
+            "contestId": 4,
+            "index": "A",
+            "name": "Watermelon",
+            "type": "PROGRAMMING",
+            "rating": 800,
+            "tags": ["brute force", "math", "implementation"]
+        },
+        {
+            "contestId": 71,
+            "index": "A",
+            "name": "Way Too Long Words",
+            "type": "PROGRAMMING",
+            "rating": 800,
+            "tags": ["strings", "implementation"]
+        },
+        {
+            "contestId": 231,
+            "index": "A",
+            "name": "Team",
+            "type": "PROGRAMMING",
+            "rating": 800,
+            "tags": ["brute force", "greedy", "implementation"]
+        },
+        {
+            "contestId": 339,
+            "index": "A",
+            "name": "Helpful Maths",
+            "type": "PROGRAMMING",
+            "rating": 800,
+            "tags": ["greedy", "implementation", "sortings", "strings"]
+        },
+        {
+            "contestId": 800,
+            "index": "A",
+            "name": "Voltage Keepsake",
+            "type": "PROGRAMMING",
+            "rating": 1600,
+            "tags": ["binary search", "math"]
+        }
+    ];
+}
 
 // Check if we're on the problems page
 if (window.location.pathname.includes('problems.html')) {
@@ -1224,11 +1165,18 @@ if (window.location.pathname.includes('problems.html')) {
 }
 
 function initProblemsPage() {
+    console.log('initProblemsPage() called - starting problems page initialization');
+    
     const dataStructureButtons = document.querySelectorAll('#array, #linkedlist, #tree, #graph, #string, #dp, #math, #greedy');
     const difficultyButtons = document.querySelectorAll('#easy, #medium, #hard');
     const searchInput = document.getElementById('searchInput');
     const loadMoreBtn = document.getElementById('loadMoreBtn');
     const installBtn = document.getElementById('installBtn');
+    
+    console.log('Found dataStructureButtons:', dataStructureButtons.length);
+    console.log('Found difficultyButtons:', difficultyButtons.length);
+    console.log('Found searchInput:', !!searchInput);
+    console.log('Found loadMoreBtn:', !!loadMoreBtn);
     
     // Initialize with "array" and "easy" as active
     document.getElementById('array').classList.add('active');
@@ -1293,7 +1241,9 @@ function initProblemsPage() {
     }
     
     // Load initial problems
+    console.log('About to call fetchProblems()');
     fetchProblems();
+    console.log('fetchProblems() call completed');
 }
 
 async function fetchProblems() {
@@ -1302,7 +1252,10 @@ async function fetchProblems() {
     try {
         if (loadingIndicator) {
             loadingIndicator.style.display = 'block';
+            loadingIndicator.innerHTML = 'Loading problems...';
         }
+        
+        console.log('fetchProblems() called');
         
         // Check for cached problems and their validity
         const cachedProblems = localStorage.getItem('cachedProblems');
@@ -1312,11 +1265,16 @@ async function fetchProblems() {
         
         // Use cached data if available and not expired
         if (cachedProblems && lastFetchTime && (now - parseInt(lastFetchTime) < CACHE_DURATION)) {
+            console.log('Using cached problems data');
             problemsData = JSON.parse(cachedProblems);
             filterAndDisplayProblems();
-            console.log("Using cached problems data");
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
             return;
         }
+        
+        console.log('No valid cache, attempting to fetch from API...');
         
         // Try to fetch from Codeforces API directly first
         let response;
@@ -1331,12 +1289,15 @@ async function fetchProblems() {
             }
             
             data = await response.json();
+            console.log('Direct API success:', data);
         } catch (directError) {
             console.log("Direct API failed, trying CORS proxy...", directError);
             
             // Fallback to CORS proxy
             try {
-                response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems'));
+                const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems');
+                console.log('Trying proxy:', proxyUrl);
+                response = await fetch(proxyUrl);
                 
                 if (!response.ok) {
                     throw new Error(`Proxy HTTP error! status: ${response.status}`);
@@ -1344,17 +1305,10 @@ async function fetchProblems() {
                 
                 const proxyData = await response.json();
                 data = JSON.parse(proxyData.contents);
+                console.log('Proxy API success:', data);
             } catch (proxyError) {
-                console.log("Proxy also failed, trying alternative proxy...", proxyError);
-                
-                // Try alternative CORS proxy
-                response = await fetch('https://cors-anywhere.herokuapp.com/https://codeforces.com/api/problemset.problems');
-                
-                if (!response.ok) {
-                    throw new Error(`Alternative proxy HTTP error! status: ${response.status}`);
-                }
-                
-                data = await response.json();
+                console.log("Primary proxy failed:", proxyError);
+                throw proxyError; // Skip the secondary proxy for now to test faster
             }
         }
         
@@ -1389,13 +1343,14 @@ async function fetchProblems() {
                 }, 2000);
             }
         } else {
-            // Use backup problems as last resort
-            console.log("Using backup problems data");
-            problemsData = backupProblems;
+            // Use dynamic backup problems as last resort
+            console.log("Using dynamic backup problems data");
+            problemsData = generateBackupProblems();
             filterAndDisplayProblems();
             
             if (loadingIndicator) {
-                loadingIndicator.innerHTML = 'Using sample problems (connection issues detected)';
+                const backupType = problemsData.length > 5 ? 'cached problems' : 'sample problems';
+                loadingIndicator.innerHTML = `Using ${backupType} (connection issues detected)`;
                 setTimeout(() => {
                     if (loadingIndicator) {
                         loadingIndicator.style.display = 'none';
@@ -1405,13 +1360,17 @@ async function fetchProblems() {
         }
     } finally {
         // Only hide loading if we're not showing a message
-        if (loadingIndicator && !loadingIndicator.innerHTML.includes('cached data') && !loadingIndicator.innerHTML.includes('Failed')) {
+        if (loadingIndicator && !loadingIndicator.innerHTML.includes('cached data') && !loadingIndicator.innerHTML.includes('sample problems')) {
             loadingIndicator.style.display = 'none';
         }
     }
 }
 
 function filterAndDisplayProblems() {
+    console.log('filterAndDisplayProblems called');
+    console.log('problemsData length:', problemsData.length);
+    console.log('currentProblemFilters:', currentProblemFilters);
+    
     // Filter problems based on current filters
     filteredProblems = problemsData.filter(problem => {
         // Data structure filter
@@ -1426,8 +1385,21 @@ function filterAndDisplayProblems() {
             problem.name.toLowerCase().includes(currentProblemFilters.search) ||
             tags.some(tag => tag.toLowerCase().includes(currentProblemFilters.search));
         
+        // For backup problems, be more lenient with data structure matching
+        if (problemsData.length <= 20) { // Dynamic backup problems dataset (could be 5-20 problems)
+            return difficultyMatch && searchMatch;
+        }
+        
         return dataStructureMatch && difficultyMatch && searchMatch;
     });
+    
+    console.log('filteredProblems length:', filteredProblems.length);
+    
+    // If no problems match and we're using backup data, show all backup problems
+    if (filteredProblems.length === 0 && problemsData.length <= 20) {
+        console.log('No filtered problems, showing all backup problems');
+        filteredProblems = problemsData;
+    }
     
     // Sort problems by rating in ascending order
     filteredProblems.sort((a, b) => {
@@ -1539,32 +1511,56 @@ function checkProblemDifficultyMatch(problem, difficulty) {
 }
 
 function displayProblems() {
+    console.log('displayProblems called');
+    console.log('filteredProblems length:', filteredProblems.length);
+    console.log('currentProblemsPage:', currentProblemsPage);
+    
     const problemsList = document.getElementById('problemsList');
     const loadMoreBtn = document.getElementById('loadMoreBtn');
     const loadingIndicator = document.getElementById('loadingIndicator');
     
-    if (!problemsList) return;
+    console.log('problemsList element:', problemsList);
+    
+    if (!problemsList) {
+        console.error('problemsList element not found!');
+        return;
+    }
     
     // Hide loading indicator once problems are ready to display
     if (loadingIndicator) {
         loadingIndicator.style.display = 'none';
+        console.log('Loading indicator hidden');
     }
     
     const startIndex = currentProblemsPage * PROBLEMS_PER_PAGE;
     const endIndex = startIndex + PROBLEMS_PER_PAGE;
     const problemsToShow = filteredProblems.slice(startIndex, endIndex);
     
-    problemsToShow.forEach(problem => {
+    console.log('Problems to show:', problemsToShow.length);
+    console.log('Start index:', startIndex, 'End index:', endIndex);
+    
+    if (problemsToShow.length === 0) {
+        console.log('No problems to show on this page');
+        problemsList.innerHTML = '<p>No problems found. Try different filters.</p>';
+        return;
+    }
+    
+    problemsToShow.forEach((problem, index) => {
+        console.log(`Creating element for problem ${index + 1}:`, problem.name);
         const problemElement = createProblemElement(problem);
         problemsList.appendChild(problemElement);
     });
+    
+    console.log('Finished adding', problemsToShow.length, 'problems to the list');
     
     // Show/hide load more button
     if (loadMoreBtn) {
         if (endIndex < filteredProblems.length) {
             loadMoreBtn.style.display = 'block';
+            console.log('Load more button shown');
         } else {
             loadMoreBtn.style.display = 'none';
+            console.log('Load more button hidden');
         }
     }
 }
