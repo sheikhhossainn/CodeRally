@@ -321,7 +321,7 @@ if ('serviceWorker' in navigator) {
             }
             
             // Register service worker with simple approach
-            const SW_VERSION = '20250729-6'; // Match with service worker VERSION
+            const SW_VERSION = '20250729-7'; // Match with service worker VERSION
             const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + SW_VERSION, {
                 updateViaCache: 'none'
             });
@@ -1079,6 +1079,8 @@ function checkDifficultyMatch(contest, difficulty) {
 
 // ==================== PROBLEMS PAGE FUNCTIONALITY ====================
 
+// ==================== PROBLEMS PAGE FUNCTIONALITY ====================
+
 // Problems page variables
 let problemsData = [];
 let filteredProblems = [];
@@ -1089,6 +1091,130 @@ let currentProblemFilters = {
     difficulty: 'easy',
     search: ''
 };
+
+// Backup problems data in case API fails completely
+const backupProblems = [
+    {
+        "contestId": 1,
+        "index": "A",
+        "name": "Theatre Square",
+        "type": "PROGRAMMING",
+        "rating": 1000,
+        "tags": ["math"]
+    },
+    {
+        "contestId": 4,
+        "index": "A",
+        "name": "Watermelon",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["brute force", "math"]
+    },
+    {
+        "contestId": 71,
+        "index": "A",
+        "name": "Way Too Long Words",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["strings"]
+    },
+    {
+        "contestId": 158,
+        "index": "A",
+        "name": "Next Round",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["implementation"]
+    },
+    {
+        "contestId": 231,
+        "index": "A",
+        "name": "Team",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["brute force", "greedy"]
+    },
+    {
+        "contestId": 282,
+        "index": "A",
+        "name": "Bit++",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["implementation"]
+    },
+    {
+        "contestId": 339,
+        "index": "A",
+        "name": "Helpful Maths",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["greedy", "implementation", "sortings", "strings"]
+    },
+    {
+        "contestId": 546,
+        "index": "A",
+        "name": "Soldier and Bananas",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["brute force", "implementation", "math"]
+    },
+    {
+        "contestId": 617,
+        "index": "A",
+        "name": "Elephant",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["math"]
+    },
+    {
+        "contestId": 677,
+        "index": "A",
+        "name": "Vanya and Fence",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["implementation"]
+    },
+    {
+        "contestId": 734,
+        "index": "A",
+        "name": "Anton and Danik",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["implementation", "strings"]
+    },
+    {
+        "contestId": 800,
+        "index": "A",
+        "name": "Voltage Keepsake",
+        "type": "PROGRAMMING",
+        "rating": 1600,
+        "tags": ["binary search", "math"]
+    },
+    {
+        "contestId": 977,
+        "index": "A",
+        "name": "Wrong Subtraction",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["implementation"]
+    },
+    {
+        "contestId": 1030,
+        "index": "A",
+        "name": "In Search of an Easy Problem",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["implementation"]
+    },
+    {
+        "contestId": 1154,
+        "index": "A",
+        "name": "Restoring Three Numbers",
+        "type": "PROGRAMMING",
+        "rating": 800,
+        "tags": ["math"]
+    }
+];
 
 // Check if we're on the problems page
 if (window.location.pathname.includes('problems.html')) {
@@ -1182,7 +1308,7 @@ async function fetchProblems() {
         const cachedProblems = localStorage.getItem('cachedProblems');
         const lastFetchTime = localStorage.getItem('problemsFetchTime');
         const now = new Date().getTime();
-        const CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours cache
+        const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours cache (problems don't change often)
         
         // Use cached data if available and not expired
         if (cachedProblems && lastFetchTime && (now - parseInt(lastFetchTime) < CACHE_DURATION)) {
@@ -1192,28 +1318,94 @@ async function fetchProblems() {
             return;
         }
         
-        // If no valid cache, fetch from API
-        const response = await fetch('https://codeforces.com/api/problemset.problems');
-        const data = await response.json();
+        // Try to fetch from Codeforces API directly first
+        let response;
+        let data;
         
-        if (data.status === 'OK') {
+        try {
+            console.log("Fetching problems from Codeforces API...");
+            response = await fetch('https://codeforces.com/api/problemset.problems');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            data = await response.json();
+        } catch (directError) {
+            console.log("Direct API failed, trying CORS proxy...", directError);
+            
+            // Fallback to CORS proxy
+            try {
+                response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems'));
+                
+                if (!response.ok) {
+                    throw new Error(`Proxy HTTP error! status: ${response.status}`);
+                }
+                
+                const proxyData = await response.json();
+                data = JSON.parse(proxyData.contents);
+            } catch (proxyError) {
+                console.log("Proxy also failed, trying alternative proxy...", proxyError);
+                
+                // Try alternative CORS proxy
+                response = await fetch('https://cors-anywhere.herokuapp.com/https://codeforces.com/api/problemset.problems');
+                
+                if (!response.ok) {
+                    throw new Error(`Alternative proxy HTTP error! status: ${response.status}`);
+                }
+                
+                data = await response.json();
+            }
+        }
+        
+        if (data && data.status === 'OK' && data.result && data.result.problems) {
             problemsData = data.result.problems;
             
-            // Cache the problems data
+            // Cache the problems data with extended duration
             localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
             localStorage.setItem('problemsFetchTime', now.toString());
             
+            console.log(`Fetched ${problemsData.length} problems successfully`);
             filterAndDisplayProblems();
         } else {
-            throw new Error('Failed to fetch problems');
+            throw new Error('Invalid API response structure');
         }
     } catch (error) {
         console.error('Error fetching problems:', error);
-        if (loadingIndicator) {
-            loadingIndicator.innerHTML = 'Failed to load problems. Please try again later.';
+        
+        // Try to use any cached data as fallback, even if expired
+        const cachedProblems = localStorage.getItem('cachedProblems');
+        if (cachedProblems) {
+            console.log("Using expired cached data as fallback");
+            problemsData = JSON.parse(cachedProblems);
+            filterAndDisplayProblems();
+            
+            if (loadingIndicator) {
+                loadingIndicator.innerHTML = 'Using cached data (may be outdated)';
+                setTimeout(() => {
+                    if (loadingIndicator) {
+                        loadingIndicator.style.display = 'none';
+                    }
+                }, 2000);
+            }
+        } else {
+            // Use backup problems as last resort
+            console.log("Using backup problems data");
+            problemsData = backupProblems;
+            filterAndDisplayProblems();
+            
+            if (loadingIndicator) {
+                loadingIndicator.innerHTML = 'Using sample problems (connection issues detected)';
+                setTimeout(() => {
+                    if (loadingIndicator) {
+                        loadingIndicator.style.display = 'none';
+                    }
+                }, 3000);
+            }
         }
     } finally {
-        if (loadingIndicator) {
+        // Only hide loading if we're not showing a message
+        if (loadingIndicator && !loadingIndicator.innerHTML.includes('cached data') && !loadingIndicator.innerHTML.includes('Failed')) {
             loadingIndicator.style.display = 'none';
         }
     }
