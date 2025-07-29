@@ -320,168 +320,33 @@ if ('serviceWorker' in navigator) {
                 console.log('Update completed successfully');
             }
             
-            // Register with aggressive update checking
-            const SW_VERSION = '20250729-4'; // Match with service worker VERSION
-            const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + SW_VERSION + '&t=' + Date.now(), {
-                // This ensures the service worker is always updated
+            // Register service worker with simple approach
+            const SW_VERSION = '20250729-5'; // Match with service worker VERSION
+            const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + SW_VERSION, {
                 updateViaCache: 'none'
             });
             console.log('Service Worker registered successfully');
             swRegistration = registration;
             
-            // Force an immediate update check
+            // Simple update check - no aggressive intervals
             registration.update();
-            
-            // Create a toast notification system for updates
-            const createUpdateToast = () => {
-                if (document.getElementById('update-toast')) return;
-                
-                const toast = document.createElement('div');
-                toast.id = 'update-toast';
-                toast.style.position = 'fixed';
-                toast.style.bottom = '20px';
-                toast.style.left = '50%';
-                toast.style.transform = 'translateX(-50%)';
-                toast.style.backgroundColor = '#4a90e2';
-                toast.style.color = 'white';
-                toast.style.padding = '12px 20px';
-                toast.style.borderRadius = '8px';
-                toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-                toast.style.zIndex = '9999';
-                toast.style.display = 'flex';
-                toast.style.alignItems = 'center';
-                toast.style.justifyContent = 'space-between';
-                toast.style.gap = '10px';
-                
-                const message = document.createElement('span');
-                message.textContent = 'New content available!';
-                
-                const refreshButton = document.createElement('button');
-                refreshButton.textContent = 'Refresh';
-                refreshButton.style.backgroundColor = 'white';
-                refreshButton.style.color = '#4a90e2';
-                refreshButton.style.border = 'none';
-                refreshButton.style.padding = '6px 12px';
-                refreshButton.style.borderRadius = '4px';
-                refreshButton.style.cursor = 'pointer';
-                refreshButton.style.fontWeight = 'bold';
-                
-                refreshButton.addEventListener('click', () => {
-                    if (!refreshingPage) {
-                        refreshingPage = true;
-                        // Use our hard refresh function instead
-                        hardRefresh();
-                    }
-                });
-                
-                toast.appendChild(message);
-                toast.appendChild(refreshButton);
-                document.body.appendChild(toast);
-            };
-            
-            // Check for updates aggressively in the background
-            setInterval(() => {
-                if (!refreshingPage && !isRefreshCycling()) {
-                    console.log('Checking for service worker updates...');
-                    
-                    // Force update with cache busting
-                    registration.update().catch(err => console.log('Update check failed:', err));
-                    
-                    // Also check browser cache age
-                    const cacheTimestamp = localStorage.getItem('sw_cache_timestamp');
-                    const currentTime = Date.now();
-                    if (!cacheTimestamp || (currentTime - parseInt(cacheTimestamp) > 300000)) { // 5 minutes max cache age
-                        console.log('Cache is stale, forcing reload');
-                        localStorage.setItem('sw_cache_timestamp', currentTime.toString());
-                        
-                        // Double check with service worker that we have latest version
-                        if (navigator.serviceWorker.controller) {
-                            navigator.serviceWorker.controller.postMessage({
-                                type: 'CHECK_VERSION',
-                                expected: SW_VERSION,
-                                timestamp: currentTime
-                            });
-                        }
-                    }
-                }
-            }, 15000);  // Every 15 seconds
-            
-            // Set up automatic update handling without user interaction
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (!refreshingPage) {
-                    console.log('Service worker controller changed - page will refresh automatically');
-                    // The service worker controller has changed, indicating an update
-                    refreshingPage = true;
-                    
-                    // Force page reload immediately to ensure we get the newest content
-                    setTimeout(() => {
-                        console.log('Forcing page reload after controller change');
-                        window.location.reload(true);
-                    }, 500);
-                }
-            });
-            
-            // Listen for messages from the service worker
-            navigator.serviceWorker.addEventListener('message', (event) => {
-                if (event.data) {
-                    // Handle version check response
-                    if (event.data.type === 'CURRENT_VERSION') {
-                        console.log('Service worker version check:', event.data.version);
-                        // If versions don't match, force reload
-                        if (event.data.version !== SW_VERSION) {
-                            console.log('Version mismatch detected, forcing reload');
-                            refreshingPage = true;
-                            window.location.reload(true);
-                        }
-                    }
-                    
-                    // Handle force refresh message
-                    if (event.data.type === 'FORCE_REFRESH') {
-                        console.log('Received force refresh message');
-                        if (!refreshingPage) {
-                            refreshingPage = true;
-                            window.location.reload(true);
-                        }
-                    }
-                }
-            });
             
             // Listen for service worker updates
             registration.addEventListener('updatefound', () => {
                 const newWorker = registration.installing;
-                newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        // New content available
-                        console.log('New content available!');
-                        updateAvailable = true;
-                        createUpdateToast();
-                    }
-                });
-            });
-            
-            // Listen for messages from service worker
-            navigator.serviceWorker.addEventListener('message', event => {
-                if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
-                    console.log('Update notification from SW:', event.data);
-                    updateAvailable = true;
-                    createUpdateToast();
-                }
-                
-                // Handle force refresh message from service worker
-                if (event.data && event.data.type === 'FORCE_REFRESH') {
-                    console.log('Force refresh command received from service worker');
-                    // Wait a moment to ensure service worker has finished its tasks
-                    setTimeout(hardRefresh, 100);
+                if (newWorker) {
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // New content is available, reload once
+                            console.log('New content available, reloading page');
+                            window.location.reload();
+                        }
+                    });
                 }
             });
-            
-            // Initialize notification status if user had previously enabled it
-            if (localStorage.getItem('notificationsEnabled') === 'true') {
-                // Update notification button
-                updateNotificationButtonState();
-            }
-        } catch (registrationError) {
-            console.error('Service Worker registration failed:', registrationError);
+
+        } catch (error) {
+            console.error('Service Worker registration failed:', error);
         }
     });
 }

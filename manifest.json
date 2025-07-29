@@ -1,9 +1,9 @@
 {
   "name": "CodeRally - Programming Contests Tracker",
   "short_name": "CodeRally",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Track programming contests from Codeforces, HackerRank, and CodeChef",
-  "start_url": "./?pwa=true&v=20250729-4",
+  "start_url": "./?pwa=true&v=20250729-5",
   "display": "standalone",
   "background_color": "#0f1115",
   "theme_color": "#4a90e2",
