@@ -129,26 +129,29 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Activate event with aggressive cache cleanup and forced refresh
+// Activate event with controlled cache cleanup
 self.addEventListener('activate', (event) => {
   // Take control of all clients immediately
   self.clients.claim();
   
+  // Only delete old caches, keep the current one
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          // Delete ALL caches unconditionally to ensure fresh state
-          console.log('Deleting cache:', cacheName);
-          return caches.delete(cacheName);
+          if (cacheName !== CACHE_NAME) {
+            console.log('Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
         })
       ).then(() => {
-        // After clearing ALL caches, notify clients about the update
+        // After clearing old caches, notify clients about the update
         return self.clients.matchAll().then(clients => {
           return Promise.all(clients.map(client => {
             // Send a message to each client that an update is available
+            // but don't force refresh automatically
             return client.postMessage({
-              type: 'FORCE_REFRESH',
+              type: 'UPDATE_AVAILABLE',
               timestamp: VERSION_TIMESTAMP
             });
           }));
@@ -156,6 +159,32 @@ self.addEventListener('activate', (event) => {
       });
     })
   );
+});
+
+// Message event handler
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CLEAR_CACHES') {
+    event.waitUntil(
+      caches.keys()
+        .then(cacheNames => {
+          return Promise.all(
+            cacheNames.map(cacheName => {
+              console.log('Service worker deleting cache:', cacheName);
+              return caches.delete(cacheName);
+            })
+          );
+        })
+        .then(() => {
+          // Respond to confirm caches were cleared
+          if (event.source) {
+            event.source.postMessage({
+              type: 'CACHES_CLEARED',
+              timestamp: new Date().getTime()
+            });
+          }
+        })
+    );
+  }
 });
 
 // Push event handler

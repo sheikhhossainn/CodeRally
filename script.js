@@ -17,40 +17,66 @@ let updateAvailable = false;
 let refreshingPage = false;
 let forceRefreshAttempted = false;
 
+// Track refresh state in sessionStorage to prevent infinite refresh loops
+function isRefreshCycling() {
+    const refreshCount = parseInt(sessionStorage.getItem('refreshCount') || '0');
+    const lastRefreshTime = parseInt(sessionStorage.getItem('lastRefreshTime') || '0');
+    const currentTime = new Date().getTime();
+    
+    // If we've refreshed more than 2 times in the last 10 seconds, it's probably cycling
+    return refreshCount > 2 && (currentTime - lastRefreshTime < 10000);
+}
+
 // Function to perform a hard refresh that bypasses caches
 function hardRefresh() {
-    if (forceRefreshAttempted) return; // Prevent infinite refresh loops
-    forceRefreshAttempted = true;
+    // Prevent refresh cycles
+    if (isRefreshCycling()) {
+        console.warn('Detected refresh cycling, stopping the cycle');
+        sessionStorage.removeItem('refreshCount');
+        sessionStorage.removeItem('lastRefreshTime');
+        
+        // Show a manual refresh button instead of auto-refreshing
+        const toast = document.createElement('div');
+        toast.style.position = 'fixed';
+        toast.style.top = '0';
+        toast.style.left = '0';
+        toast.style.right = '0';
+        toast.style.backgroundColor = '#ff4500';
+        toast.style.color = 'white';
+        toast.style.padding = '10px';
+        toast.style.textAlign = 'center';
+        toast.style.zIndex = '9999';
+        toast.innerHTML = 'We detected an update loop. <button onclick="location.reload(true)" style="background: white; color: #ff4500; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Click here</button> to manually update when ready.';
+        document.body.appendChild(toast);
+        return;
+    }
+    
+    // Track refresh attempt
+    const refreshCount = parseInt(sessionStorage.getItem('refreshCount') || '0');
+    sessionStorage.setItem('refreshCount', refreshCount + 1);
+    sessionStorage.setItem('lastRefreshTime', new Date().getTime());
     
     console.log('Performing hard refresh...');
+    
+    // Mark that we're handling an update
+    localStorage.setItem('handlingUpdate', 'true');
     
     // Clear localStorage cache
     localStorage.removeItem('contestsCache');
     localStorage.removeItem('lastFetchTime');
     
-    // Clear application cache if available
-    if (window.applicationCache && window.applicationCache.swapCache) {
-        try {
-            window.applicationCache.swapCache();
-        } catch (e) {
-            console.error('Failed to swap application cache:', e);
-        }
-    }
-    
-    // Clear browser cache via service worker
-    if ('caches' in window) {
-        caches.keys().then(function(names) {
-            for (let name of names) {
-                caches.delete(name);
-            }
+    // Request cache clearance from service worker
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'CLEAR_CACHES'
         });
     }
     
-    // Set timestamp to force new requests
-    const timestamp = new Date().getTime();
-    
-    // Force a reload bypassing cache
-    window.location.href = window.location.href.split('?')[0] + '?cache-bust=' + timestamp;
+    // Allow time for cache clearing to complete
+    setTimeout(() => {
+        // Standard reload with cache bypass
+        window.location.reload(true);
+    }, 500);
 }
 
 // Function to get display limit based on screen size
@@ -282,12 +308,21 @@ document.addEventListener('DOMContentLoaded', function() {
     fetchData();
 });
 
-// Register Service Worker for PWA with aggressive auto-update and push support
+// Register Service Worker for PWA with controlled update and push support
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            // Add timestamp to prevent registration caching
-            const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + new Date().getTime());
+            // Check if we're handling an update that was initiated before
+            const handlingUpdate = localStorage.getItem('handlingUpdate') === 'true';
+            if (handlingUpdate) {
+                // Clear the flag since we've now reloaded
+                localStorage.removeItem('handlingUpdate');
+                console.log('Update completed successfully');
+            }
+            
+            // Register with cache busting but stable version (not random timestamp)
+            const SW_VERSION = '11'; // Increment this when you make changes
+            const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + SW_VERSION);
             console.log('Service Worker registered successfully');
             swRegistration = registration;
             
@@ -338,12 +373,13 @@ if ('serviceWorker' in navigator) {
                 document.body.appendChild(toast);
             };
             
-            // Check for updates every 15 seconds (more frequent)
+            // Check for updates every 60 seconds (more reasonable interval)
             setInterval(() => {
-                if (!refreshingPage) {
+                if (!refreshingPage && !isRefreshCycling()) {
+                    console.log('Checking for service worker updates...');
                     registration.update().catch(err => console.log('Update check failed:', err));
                 }
-            }, 15000);
+            }, 60000);
             
             // Listen for service worker updates
             registration.addEventListener('updatefound', () => {
