@@ -1,6 +1,8 @@
 // Use fixed version string to enable proper update detection
-const VERSION = '20250729-3';
+const VERSION = '20250729-4'; // Increment version
+const TIMESTAMP = new Date().getTime(); // Add timestamp for extra freshness
 const CACHE_NAME = 'coderally-' + VERSION;
+const CACHE_MAX_AGE = 3600 * 1000; // 1 hour max cache age
 
 // Add query params to bust cache
 const addVersionParam = (url) => {
@@ -36,17 +38,29 @@ const urlsToCache = resourcesToPrecache.map(url => addVersionParam(url));
 self.addEventListener('install', (event) => {
   console.log('Service Worker installing with version:', VERSION);
   
-  // Ensure the service worker takes control immediately
+  // Clear ALL old caches first before installing
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-      .then(() => {
-        // This forces the waiting service worker to become active
-        return self.skipWaiting();
-      })
+    // Delete ALL existing caches first
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('Deleting old cache during install:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+    .then(() => caches.open(CACHE_NAME))
+    .then((cache) => {
+      console.log('Creating new cache:', CACHE_NAME);
+      return cache.addAll(urlsToCache);
+    })
+    .then(() => {
+      // This forces the waiting service worker to become active immediately
+      console.log('Skipping waiting state');
+      return self.skipWaiting();
+    })
   );
 });
 
@@ -54,26 +68,29 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
   const requestURL = new URL(event.request.url);
   
-  // Special handling for HTML, CSS, and JS files - network-first approach
+  // Special handling for HTML, CSS, and JS files - ALWAYS network-first approach
   if (requestURL.pathname.endsWith('.html') || 
       requestURL.pathname.endsWith('.css') || 
       requestURL.pathname.endsWith('.js') || 
       requestURL.pathname === '/' || 
       requestURL.pathname === '') {
     
-    // Use a network-first strategy for key application resources
+    // Always try network first for core files, ignore cache completely for HTML
     event.respondWith(
       fetch(event.request)
         .then(networkResponse => {
-          // Clone the response to cache it
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseToCache);
-          });
+          if (networkResponse && networkResponse.status === 200) {
+            // Only cache good responses
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              // Add to new cache
+              cache.put(event.request, responseToCache);
+            });
+          }
           return networkResponse;
         })
         .catch(() => {
-          // Fall back to cache if network fails
+          // Fall back to cache ONLY if network fails
           return caches.match(event.request)
             .then(cachedResponse => {
               if (cachedResponse) {
@@ -88,74 +105,90 @@ self.addEventListener('fetch', (event) => {
         })
     );
   } else {
-    // For other resources, use cache-first strategy
+    // For other resources, use stale-while-revalidate strategy
     event.respondWith(
-      caches.match(event.request)
-        .then(cachedResponse => {
-          if (cachedResponse) {
-            // Still fetch in the background to update cache
-            fetch(event.request)
-              .then(networkResponse => {
-                if (networkResponse && networkResponse.status === 200) {
-                  caches.open(CACHE_NAME).then(cache => {
-                    cache.put(event.request, networkResponse.clone());
-                  });
-                }
-              })
-              .catch(() => {/* ignore network errors */});
-              
-            return cachedResponse;
-          }
+      // Check cache first, then network
+      caches.open(CACHE_NAME).then(cache => {
+        return cache.match(event.request).then(cachedResponse => {
+          // Always fetch a fresh version from the network
+          const fetchPromise = fetch(event.request).then(networkResponse => {
+            // Only cache successful responses
+            if (networkResponse && networkResponse.status === 200) {
+              // Update the cache with the new version
+              cache.put(event.request, networkResponse.clone());
+            }
+            return networkResponse;
+          }).catch(error => {
+            console.log('Network fetch failed, returning cached or offline content', error);
+            // If network fails and we're navigating, try offline page
+            if (event.request.mode === 'navigate') {
+              return caches.match('./offline.html');
+            }
+            // For non-navigation requests, throw to trigger cached response
+            throw error;
+          });
           
-          // Not in cache, fetch from network
-          return fetch(event.request)
-            .then(networkResponse => {
-              if (networkResponse && networkResponse.status === 200) {
-                const responseToCache = networkResponse.clone();
-                caches.open(CACHE_NAME).then(cache => {
-                  cache.put(event.request, responseToCache);
-                });
-              }
-              return networkResponse;
-            })
-            .catch(() => {
-              // If both cache and network fail
-              if (event.request.mode === 'navigate') {
-                return caches.match('./offline.html');
-              }
-              return new Response('', {
-                status: 408,
-                statusText: 'Request timed out.'
-              });
-            });
-        })
+          // Return the cached response if we have it, otherwise wait for the network
+          return cachedResponse || fetchPromise;
+        });
+      })
+      .catch(() => {
+        // If both cache and network fail
+        if (event.request.mode === 'navigate') {
+          return caches.match('./offline.html');
+        }
+        return new Response('', {
+          status: 408,
+          statusText: 'Request timed out.'
+        });
+      })
     );
   }
 });
 
-// Activate event with automatic client refresh
+// Activate event with immediate and aggressive client refresh
 self.addEventListener('activate', (event) => {
-  // Delete all old caches first
+  console.log('Service Worker activating with version:', VERSION);
+  
+  // Delete all caches first regardless of name to ensure clean state
   event.waitUntil(
+    // Aggressively delete ALL caches, regardless of name
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
+            console.log('Deleting cache during activation:', cacheName);
             return caches.delete(cacheName);
           }
         })
-      ).then(() => {
-        // Take control of all clients AFTER cache deletion
-        return self.clients.claim();
-      }).then(() => {
-        // After taking control, automatically refresh all open windows
-        return self.clients.matchAll({ type: 'window' }).then(clients => {
+      );
+    })
+    .then(() => {
+      // Take immediate control of all clients
+      console.log('Taking control of all clients');
+      return self.clients.claim();
+    })
+    .then(() => {
+      // Force reload ALL clients after taking control
+      console.log('Forcing refresh of all clients');
+      return self.clients.matchAll().then(clients => {
+        if (clients && clients.length) {
+          console.log(`Refreshing ${clients.length} client(s)`);
+          
+          // For each client
           return Promise.all(clients.map(client => {
-            // Don't just notify - actually reload all clients
-            return client.navigate(client.url);
+            console.log(`Navigating client to: ${client.url}`);
+            // Force hard reload
+            return client.navigate(client.url).catch(err => {
+              console.error('Client navigation failed:', err);
+              // As backup, try posting a refresh message
+              return client.postMessage({
+                type: 'FORCE_REFRESH',
+                timestamp: Date.now()
+              });
+            });
           }));
-        });
+        }
       });
     })
   );
@@ -163,6 +196,7 @@ self.addEventListener('activate', (event) => {
 
 // Message event handler
 self.addEventListener('message', (event) => {
+  // Handle cache clearing
   if (event.data && event.data.type === 'CLEAR_CACHES') {
     event.waitUntil(
       caches.keys()
@@ -184,6 +218,18 @@ self.addEventListener('message', (event) => {
           }
         })
     );
+  }
+  
+  // Handle check version messages
+  if (event.data && event.data.type === 'CHECK_VERSION') {
+    // Reply with current service worker version
+    if (event.source) {
+      event.source.postMessage({
+        type: 'CURRENT_VERSION',
+        version: VERSION,
+        timestamp: Date.now()
+      });
+    }
   }
 });
 

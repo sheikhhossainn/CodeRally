@@ -321,8 +321,8 @@ if ('serviceWorker' in navigator) {
             }
             
             // Register with aggressive update checking
-            const SW_VERSION = '20250729-3'; // Match with service worker VERSION
-            const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + SW_VERSION, {
+            const SW_VERSION = '20250729-4'; // Match with service worker VERSION
+            const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + SW_VERSION + '&t=' + Date.now(), {
                 // This ensures the service worker is always updated
                 updateViaCache: 'none'
             });
@@ -379,22 +379,70 @@ if ('serviceWorker' in navigator) {
                 document.body.appendChild(toast);
             };
             
-            // Check for updates frequently in the background
+            // Check for updates aggressively in the background
             setInterval(() => {
                 if (!refreshingPage && !isRefreshCycling()) {
                     console.log('Checking for service worker updates...');
+                    
+                    // Force update with cache busting
                     registration.update().catch(err => console.log('Update check failed:', err));
+                    
+                    // Also check browser cache age
+                    const cacheTimestamp = localStorage.getItem('sw_cache_timestamp');
+                    const currentTime = Date.now();
+                    if (!cacheTimestamp || (currentTime - parseInt(cacheTimestamp) > 300000)) { // 5 minutes max cache age
+                        console.log('Cache is stale, forcing reload');
+                        localStorage.setItem('sw_cache_timestamp', currentTime.toString());
+                        
+                        // Double check with service worker that we have latest version
+                        if (navigator.serviceWorker.controller) {
+                            navigator.serviceWorker.controller.postMessage({
+                                type: 'CHECK_VERSION',
+                                expected: SW_VERSION,
+                                timestamp: currentTime
+                            });
+                        }
+                    }
                 }
-            }, 30000);  // Every 30 seconds
+            }, 15000);  // Every 15 seconds
             
             // Set up automatic update handling without user interaction
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                 if (!refreshingPage) {
                     console.log('Service worker controller changed - page will refresh automatically');
                     // The service worker controller has changed, indicating an update
-                    // This event fires when skipWaiting() is called
                     refreshingPage = true;
-                    // No need to do anything - the service worker will navigate all clients
+                    
+                    // Force page reload immediately to ensure we get the newest content
+                    setTimeout(() => {
+                        console.log('Forcing page reload after controller change');
+                        window.location.reload(true);
+                    }, 500);
+                }
+            });
+            
+            // Listen for messages from the service worker
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data) {
+                    // Handle version check response
+                    if (event.data.type === 'CURRENT_VERSION') {
+                        console.log('Service worker version check:', event.data.version);
+                        // If versions don't match, force reload
+                        if (event.data.version !== SW_VERSION) {
+                            console.log('Version mismatch detected, forcing reload');
+                            refreshingPage = true;
+                            window.location.reload(true);
+                        }
+                    }
+                    
+                    // Handle force refresh message
+                    if (event.data.type === 'FORCE_REFRESH') {
+                        console.log('Received force refresh message');
+                        if (!refreshingPage) {
+                            refreshingPage = true;
+                            window.location.reload(true);
+                        }
+                    }
                 }
             });
             
