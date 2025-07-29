@@ -129,7 +129,7 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Activate event with aggressive cache cleanup
+// Activate event with aggressive cache cleanup and forced refresh
 self.addEventListener('activate', (event) => {
   // Take control of all clients immediately
   self.clients.claim();
@@ -138,18 +138,17 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
+          // Delete ALL caches unconditionally to ensure fresh state
+          console.log('Deleting cache:', cacheName);
+          return caches.delete(cacheName);
         })
       ).then(() => {
-        // After clearing old caches, notify clients about the update
+        // After clearing ALL caches, notify clients about the update
         return self.clients.matchAll().then(clients => {
           return Promise.all(clients.map(client => {
             // Send a message to each client that an update is available
             return client.postMessage({
-              type: 'UPDATE_AVAILABLE',
+              type: 'FORCE_REFRESH',
               timestamp: VERSION_TIMESTAMP
             });
           }));

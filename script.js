@@ -15,6 +15,43 @@ let swRegistration = null;
 // Variables for update detection
 let updateAvailable = false;
 let refreshingPage = false;
+let forceRefreshAttempted = false;
+
+// Function to perform a hard refresh that bypasses caches
+function hardRefresh() {
+    if (forceRefreshAttempted) return; // Prevent infinite refresh loops
+    forceRefreshAttempted = true;
+    
+    console.log('Performing hard refresh...');
+    
+    // Clear localStorage cache
+    localStorage.removeItem('contestsCache');
+    localStorage.removeItem('lastFetchTime');
+    
+    // Clear application cache if available
+    if (window.applicationCache && window.applicationCache.swapCache) {
+        try {
+            window.applicationCache.swapCache();
+        } catch (e) {
+            console.error('Failed to swap application cache:', e);
+        }
+    }
+    
+    // Clear browser cache via service worker
+    if ('caches' in window) {
+        caches.keys().then(function(names) {
+            for (let name of names) {
+                caches.delete(name);
+            }
+        });
+    }
+    
+    // Set timestamp to force new requests
+    const timestamp = new Date().getTime();
+    
+    // Force a reload bypassing cache
+    window.location.href = window.location.href.split('?')[0] + '?cache-bust=' + timestamp;
+}
 
 // Function to get display limit based on screen size
 function getDisplayLimit() {
@@ -291,18 +328,8 @@ if ('serviceWorker' in navigator) {
                 refreshButton.addEventListener('click', () => {
                     if (!refreshingPage) {
                         refreshingPage = true;
-                        // Clear cache in localStorage
-                        localStorage.removeItem('contestsCache');
-                        localStorage.removeItem('lastFetchTime');
-                        // Force clear browser cache before reload
-                        if (caches) {
-                            caches.keys().then(names => {
-                                names.forEach(name => {
-                                    caches.delete(name);
-                                });
-                            });
-                        }
-                        window.location.reload(true);
+                        // Use our hard refresh function instead
+                        hardRefresh();
                     }
                 });
                 
@@ -337,6 +364,13 @@ if ('serviceWorker' in navigator) {
                     console.log('Update notification from SW:', event.data);
                     updateAvailable = true;
                     createUpdateToast();
+                }
+                
+                // Handle force refresh message from service worker
+                if (event.data && event.data.type === 'FORCE_REFRESH') {
+                    console.log('Force refresh command received from service worker');
+                    // Wait a moment to ensure service worker has finished its tasks
+                    setTimeout(hardRefresh, 100);
                 }
             });
             
