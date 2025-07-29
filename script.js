@@ -300,9 +300,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Set default active states
-    document.getElementById('codeforces').classList.add('active');
-    document.getElementById('easy').classList.add('active');
-    document.getElementById('upcoming').classList.add('active');
+    const codeforcesBtn = document.getElementById('codeforces');
+    const easyBtn = document.getElementById('easy');
+    const upcomingBtn = document.getElementById('upcoming');
+    
+    if (codeforcesBtn) codeforcesBtn.classList.add('active');
+    if (easyBtn) easyBtn.classList.add('active');
+    if (upcomingBtn) upcomingBtn.classList.add('active');
     
     // Initial load
     fetchData();
@@ -312,6 +316,10 @@ document.addEventListener('DOMContentLoaded', function() {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
+            // Temporarily disable service worker to debug issues
+            console.log('Service Worker registration temporarily disabled for debugging');
+            return;
+            
             // Check if we're handling an update that was initiated before
             const handlingUpdate = localStorage.getItem('handlingUpdate') === 'true';
             if (handlingUpdate) {
@@ -563,13 +571,13 @@ function checkNotificationSupport() {
 function updateNotificationButtonState() {
     const notificationBtn = document.getElementById('notificationBtn');
     if (!notificationBtn) {
-        console.error('Notification button not found');
+        console.log('Notification button not found - likely on problems page');
         return;
     }
     
     const notificationIcon = notificationBtn.querySelector('.notification-icon');
     if (!notificationIcon) {
-        console.error('Notification icon not found');
+        console.log('Notification icon not found');
         return;
     }
     
@@ -1276,22 +1284,24 @@ function initProblemsPage() {
     // Load initial problems
     console.log('About to call fetchProblems()');
     
-    // Add a simple test first
-    testDirectAPI();
-    
-    fetchProblems();
-    console.log('fetchProblems() call completed');
+    // Add a simple test first - wrap in async function
+    (async () => {
+        const testSuccess = await testDirectAPI();
+        
+        // Only call fetchProblems if test didn't already load data
+        if (!testSuccess) {
+            fetchProblems();
+        }
+        
+        console.log('fetchProblems() call completed');
+    })();
 }
 
 // Simple test function to check API directly
 async function testDirectAPI() {
     console.log('=== TESTING DIRECT API ACCESS ===');
     try {
-        const testResponse = await fetch('https://codeforces.com/api/problemset.problems', {
-            method: 'GET',
-            mode: 'cors',
-            cache: 'no-cache'
-        });
+        const testResponse = await fetch('https://codeforces.com/api/problemset.problems');
         console.log('Direct API test response:', testResponse.status, testResponse.statusText);
         console.log('Response ok:', testResponse.ok);
         
@@ -1302,10 +1312,26 @@ async function testDirectAPI() {
                 status: testData.status,
                 problemCount: testData.result?.problems?.length || 0
             });
+            
+            // If test successful, directly use this data
+            if (testData && testData.status === 'OK' && testData.result && testData.result.problems) {
+                console.log('Using test data as main data source');
+                problemsData = testData.result.problems;
+                localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
+                localStorage.setItem('problemsFetchTime', new Date().getTime().toString());
+                filterAndDisplayProblems();
+                
+                const loadingIndicator = document.getElementById('loadingIndicator');
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
+                return true;
+            }
         }
     } catch (error) {
         console.error('❌ Direct API test failed:', error);
     }
+    return false;
 }
 
 async function fetchProblems() {
@@ -1359,17 +1385,9 @@ async function fetchProblems() {
         console.log('API URL:', apiUrl);
         
         const fetchStartTime = performance.now();
-        const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (compatible; CodeRally)',
-            },
-            // Add these to help with debugging
-            cache: 'no-cache',
-            mode: 'cors',
-            credentials: 'omit'
-        });
+        
+        // Use a simple fetch without extra headers that might cause CORS issues
+        const response = await fetch(apiUrl);
         
         const fetchEndTime = performance.now();
         console.log(`Fetch completed in ${fetchEndTime - fetchStartTime} milliseconds`);
