@@ -1,5 +1,5 @@
 // Use fixed version string to enable proper update detection
-const VERSION = '20250801-1'; // Increment version
+const VERSION = '20250801-2'; // Increment version
 const CACHE_NAME = 'coderally-' + VERSION;
 
 // Add query params to bust cache
@@ -54,44 +54,14 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
   const requestURL = new URL(event.request.url);
   
-  // Special handling for Codeforces API requests - network first strategy
+ 
   if (requestURL.hostname.includes('codeforces.com') && requestURL.pathname.includes('/api/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then(networkResponse => {
-          // Always try network first for API requests
-          if (networkResponse && networkResponse.status === 200) {
-            // Only cache successful responses
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              // Cache API responses with a shorter expiration
-              cache.put(event.request, responseToCache);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          // Only fall back to cache if network completely fails
-          return caches.match(event.request)
-            .then(cachedResponse => {
-              if (cachedResponse) {
-                console.log('Using cached Codeforces API response');
-                return cachedResponse;
-              }
-              // Return a proper error response if no cache exists
-              return new Response(JSON.stringify({
-                status: 'FAILED',
-                comment: 'Network unavailable and no cached data'
-              }), {
-                status: 503,
-                headers: { 
-                  'Content-Type': 'application/json',
-                  'Access-Control-Allow-Origin': '*'
-                }
-              });
-            });
-        })
-    );
+    
+    return;
+  }
+  // Also bypass proxy services used for CORS
+  if (requestURL.hostname.includes('allorigins.win')) {
+    return;
   }
   // For HTML, CSS, and JS files - always try network first
   else if (requestURL.pathname.endsWith('.html') || 
