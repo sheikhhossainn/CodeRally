@@ -1,5 +1,5 @@
 // Use fixed version string to enable proper update detection
-const VERSION = '20250801-3'; // Increment version
+const VERSION = '20250801-4'; // Increment version
 const CACHE_NAME = 'coderally-' + VERSION;
 
 // Add query params to bust cache
@@ -54,14 +54,11 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
   const requestURL = new URL(event.request.url);
   
-  // COMPLETELY BYPASS service worker for Codeforces API requests
-  if (requestURL.hostname.includes('codeforces.com') && requestURL.pathname.includes('/api/')) {
-    console.log('Service Worker: Bypassing Codeforces API request:', event.request.url);
-    return;
-  }
-  // Also bypass proxy services used for CORS
-  if (requestURL.hostname.includes('allorigins.win')) {
-    console.log('Service Worker: Bypassing proxy service request:', event.request.url);
+  // COMPLETELY BYPASS service worker for ALL API requests
+  if (requestURL.hostname.includes('codeforces.com') || 
+      requestURL.hostname.includes('allorigins.win') ||
+      requestURL.pathname.includes('/api/')) {
+    console.log('Service Worker: Bypassing API request:', event.request.url);
     return;
   }
   // For HTML, CSS, and JS files - always try network first

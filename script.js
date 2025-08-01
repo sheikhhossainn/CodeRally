@@ -1204,15 +1204,10 @@ function initProblemsPage() {
     
     // Test if we can modify the loading indicator
     if (loadingIndicator) {
-        loadingIndicator.innerHTML = 'Initializing problems page...';
+        loadingIndicator.innerHTML = 'Checking for problems data...';
         console.log('✅ Successfully updated loading indicator');
         
-        // Add debugging info
-        setTimeout(() => {
-            if (loadingIndicator.innerHTML === 'Initializing problems page...') {
-                loadingIndicator.innerHTML = 'Checking for problems data...';
-            }
-        }, 1000);
+        // Remove the debug timeout
     } else {
         console.error('❌ Loading indicator not found!');
         return;
@@ -1323,20 +1318,12 @@ function initProblemsPage() {
     // Load initial problems
     console.log('About to call fetchProblems()');
     
-    // Add debugging - check if this function is even reached
-    if (loadingIndicator) {
-        loadingIndicator.innerHTML = 'Starting API request...';
-    }
-    
     // Add a simple test first - wrap in async function
     (async () => {
         const testSuccess = await testDirectAPI();
         
         // Only call fetchProblems if test didn't already load data
         if (!testSuccess) {
-            if (loadingIndicator) {
-                loadingIndicator.innerHTML = 'Direct API test failed, trying full fetch...';
-            }
             fetchProblems();
         }
         
@@ -1429,18 +1416,21 @@ async function fetchProblems() {
         }
         
         console.log('=== No valid cache, attempting to fetch from API ===');
+        console.log('Environment:', window.location.hostname === 'localhost' ? 'LOCAL' : 'PRODUCTION');
         
         // Try multiple API endpoints in order of preference
         const endpoints = [
             'https://codeforces.com/api/problemset.problems',
-            'https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems')
+            'https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems'),
+            'https://cors-anywhere.herokuapp.com/https://codeforces.com/api/problemset.problems'
         ];
         
         let lastError = null;
         
         for (let i = 0; i < endpoints.length; i++) {
             const endpoint = endpoints[i];
-            const isProxy = endpoint.includes('allorigins.win');
+            const isAllOriginsProxy = endpoint.includes('allorigins.win');
+            const isCorsProxy = endpoint.includes('cors-anywhere');
             
             try {
                 console.log(`Attempting to fetch from endpoint ${i + 1}/${endpoints.length}: ${endpoint}`);
@@ -1451,7 +1441,11 @@ async function fetchProblems() {
                 const response = await fetch(endpoint, {
                     signal: controller.signal,
                     mode: 'cors',
-                    cache: 'no-cache'
+                    cache: 'no-cache',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
                 });
                 
                 clearTimeout(timeoutId);
@@ -1467,10 +1461,11 @@ async function fetchProblems() {
                 }
                 
                 let data;
-                if (isProxy) {
+                if (isAllOriginsProxy) {
                     const proxyData = await response.json();
                     data = JSON.parse(proxyData.contents);
                 } else {
+                    // For direct Codeforces API and cors-anywhere proxy
                     data = await response.json();
                 }
                 
