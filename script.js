@@ -1402,57 +1402,41 @@ async function fetchProblems() {
     }
     
     try {
-        console.log('🔄 Attempting to fetch problems from Codeforces API...');
-        const response = await fetch('https://codeforces.com/api/problemset.problems');
-        console.log('📡 Response received:', response.status, response.statusText);
+        // Use proxy first for deployed version to avoid CORS issues
+        console.log('🔄 Fetching problems via proxy to avoid CORS...');
+        const response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems'));
+        const proxyData = await response.json();
+        const data = JSON.parse(proxyData.contents);
         
-        const data = await response.json();
-        console.log('📊 Data parsed:', data ? 'Success' : 'Failed', 'Status:', data?.status);
+        // Cache the data
+        problemsData = data.result.problems;
+        localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
+        localStorage.setItem('problemsFetchTime', now.toString());
         
-        if (data && data.status === 'OK' && data.result && data.result.problems) {
-            // Cache the data
+        console.log(`✅ Successfully fetched ${problemsData.length} problems via proxy`);
+        filterAndDisplayProblems();
+        
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('❌ Proxy fetch failed:', error.message);
+        
+        // Try direct API as fallback (might work locally)
+        try {
+            console.log('🔄 Trying direct API as fallback...');
+            const response = await fetch('https://codeforces.com/api/problemset.problems');
+            const data = await response.json();
+            
             problemsData = data.result.problems;
             localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
             localStorage.setItem('problemsFetchTime', now.toString());
             
-            console.log(`✅ Successfully fetched ${problemsData.length} problems from API`);
+            console.log(`✅ Successfully fetched ${problemsData.length} problems from direct API`);
             filterAndDisplayProblems();
             
             if (loadingIndicator) {
                 loadingIndicator.style.display = 'none';
-            }
-        } else {
-            console.error('❌ Invalid API response structure:', data);
-            throw new Error('Invalid API response structure');
-        }
-    } catch (error) {
-        console.error('❌ Direct API fetch failed:', error.message);
-        // Try proxy as fallback
-        try {
-            console.log('🔄 Attempting proxy fallback...');
-            const response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems'));
-            console.log('📡 Proxy response received:', response.status, response.statusText);
-            
-            const proxyData = await response.json();
-            console.log('📦 Proxy data parsed:', proxyData ? 'Success' : 'Failed');
-            
-            const data = JSON.parse(proxyData.contents);
-            console.log('📊 Contents parsed:', data ? 'Success' : 'Failed', 'Status:', data?.status);
-            
-            if (data && data.status === 'OK' && data.result && data.result.problems) {
-                problemsData = data.result.problems;
-                localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
-                localStorage.setItem('problemsFetchTime', now.toString());
-                
-                console.log(`✅ Successfully fetched ${problemsData.length} problems from proxy`);
-                filterAndDisplayProblems();
-                
-                if (loadingIndicator) {
-                    loadingIndicator.style.display = 'none';
-                }
-            } else {
-                console.error('❌ Invalid proxy response structure:', data);
-                throw new Error('Invalid proxy response structure');
             }
         } catch (fallbackError) {
             // Use cached data if available (even if expired)
