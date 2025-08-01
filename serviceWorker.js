@@ -1,5 +1,5 @@
 // Use fixed version string to enable proper update detection
-const VERSION = '20250801-4'; // Increment version
+const VERSION = '20250801-5'; // Increment version
 const CACHE_NAME = 'coderally-' + VERSION;
 
 // Add query params to bust cache
