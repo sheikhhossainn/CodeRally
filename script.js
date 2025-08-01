@@ -1377,103 +1377,69 @@ function initProblemsPage() {
 async function fetchProblems() {
     const loadingIndicator = document.getElementById('loadingIndicator');
     
-    // Check for cached problems and their validity  
-    const cachedProblems = localStorage.getItem('cachedProblems');
-    const lastFetchTime = localStorage.getItem('problemsFetchTime');
-    const now = new Date().getTime();
-    const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours cache (problems don't change often)
+    console.log('🚀 Starting fetchProblems function');
+    console.log('Loading indicator found:', !!loadingIndicator);
     
-    // Use cached data if available and not expired
-    if (cachedProblems && lastFetchTime && (now - parseInt(lastFetchTime) < CACHE_DURATION)) {
-        console.log('Using cached problems data');
-        problemsData = JSON.parse(cachedProblems);
-        console.log('Cached problems loaded:', problemsData.length);
-        filterAndDisplayProblems();
-        if (loadingIndicator) {
-            loadingIndicator.style.display = 'none';
-        }
-        return;
-    }
-    
-    // Show loading
+    // Show loading immediately
     if (loadingIndicator) {
         loadingIndicator.style.display = 'block';
         loadingIndicator.innerHTML = 'Loading problems...';
+        console.log('✅ Loading indicator shown');
     }
     
     try {
-        // Use proxy first for deployed version to avoid CORS issues
-        console.log('🔄 Fetching problems via proxy to avoid CORS...');
-        const response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems'));
-        const proxyData = await response.json();
-        const data = JSON.parse(proxyData.contents);
+        // Simple direct fetch to AllOrigins proxy
+        console.log('🔄 Fetching from AllOrigins proxy...');
+        const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems');
+        console.log('Proxy URL:', proxyUrl);
         
-        // Cache the data
-        problemsData = data.result.problems;
-        localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
-        localStorage.setItem('problemsFetchTime', now.toString());
+        const response = await fetch(proxyUrl);
+        console.log('Response received:', response.status, response.statusText);
         
-        console.log(`✅ Successfully fetched ${problemsData.length} problems via proxy`);
-        filterAndDisplayProblems();
-        
-        if (loadingIndicator) {
-            loadingIndicator.style.display = 'none';
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    } catch (error) {
-        console.error('❌ Proxy fetch failed:', error.message);
         
-        // Try direct API as fallback (might work locally)
-        try {
-            console.log('🔄 Trying direct API as fallback...');
-            const response = await fetch('https://codeforces.com/api/problemset.problems');
-            const data = await response.json();
+        const proxyData = await response.json();
+        console.log('Proxy data keys:', Object.keys(proxyData));
+        
+        const apiData = JSON.parse(proxyData.contents);
+        console.log('API data keys:', Object.keys(apiData));
+        
+        if (apiData.status === 'OK' && apiData.result && apiData.result.problems) {
+            problemsData = apiData.result.problems;
+            console.log(`✅ Successfully loaded ${problemsData.length} problems!`);
             
-            problemsData = data.result.problems;
-            localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
-            localStorage.setItem('problemsFetchTime', now.toString());
-            
-            console.log(`✅ Successfully fetched ${problemsData.length} problems from direct API`);
-            filterAndDisplayProblems();
-            
+            // Hide loading and show problems
             if (loadingIndicator) {
                 loadingIndicator.style.display = 'none';
             }
-        } catch (fallbackError) {
-            // Use cached data if available (even if expired)
-            if (cachedProblems) {
-                console.log("🔄 Using expired cached data as fallback");
-                problemsData = JSON.parse(cachedProblems);
-                filterAndDisplayProblems();
-                if (loadingIndicator) {
-                    loadingIndicator.innerHTML = 'Using cached data (API temporarily unavailable)';
-                    setTimeout(() => {
-                        if (loadingIndicator) loadingIndicator.style.display = 'none';
-                    }, 2000);
-                }
-                return;
-            }
             
-            // Final fallback to backup problems
-            console.log("🆘 Using backup problems data");
-            problemsData = generateBackupProblems();
             filterAndDisplayProblems();
             
-            if (loadingIndicator) {
-                loadingIndicator.innerHTML = `
-                    <div style="color: #ff6b6b; text-align: center;">
-                        <p>Failed to load problems. Please try again later.</p>
-                        <button onclick="location.reload()" style="
-                            background: #4a90e2; 
-                            color: white; 
-                            border: none; 
-                            padding: 10px 20px; 
-                            border-radius: 5px; 
-                            cursor: pointer;
-                            margin-top: 10px;
-                        ">Retry Loading</button>
-                    </div>
-                `;
-            }
+        } else {
+            throw new Error('Invalid API response structure');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error fetching problems:', error);
+        
+        // Show error message
+        if (loadingIndicator) {
+            loadingIndicator.innerHTML = `
+                <div style="color: #ff6b6b; text-align: center;">
+                    <p>Failed to load problems: ${error.message}</p>
+                    <button onclick="fetchProblems()" style="
+                        background: #4a90e2; 
+                        color: white; 
+                        border: none; 
+                        padding: 10px 20px; 
+                        border-radius: 5px; 
+                        cursor: pointer;
+                        margin-top: 10px;
+                    ">Try Again</button>
+                </div>
+            `;
         }
     }
 }
