@@ -89,6 +89,25 @@ let displayLimit = getDisplayLimit();
 
 // Set up event listeners when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
+    // Detect which page we're on
+    const currentPage = window.location.pathname;
+    const isProblemsPage = currentPage.includes('problems.html') || document.getElementById('problemsList');
+    const isMainPage = currentPage === '/' || currentPage.includes('index.html') || document.getElementById('contestList');
+    
+    console.log('Page detection:', { currentPage, isProblemsPage, isMainPage });
+    
+    if (isMainPage && !isProblemsPage) {
+        // Initialize main page (contests) functionality
+        initMainPage();
+    } else if (isProblemsPage) {
+        // Initialize problems page functionality
+        initProblemsPage();
+    }
+});
+
+function initMainPage() {
+    console.log('Initializing main page (contests)');
+    
     const filterButtons = document.querySelectorAll('#upcoming, #ongoing, #finished');
     const platformButtons = document.querySelectorAll('#codeforces, #hackerrank, #codechef');
     const difficultyButtons = document.querySelectorAll('#easy, #medium, #hard');
@@ -334,16 +353,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initial load
     fetchData();
-});
+}
 
 // Register Service Worker for PWA with controlled update and push support
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            // Temporarily disable service worker to debug issues
-            console.log('Service Worker registration temporarily disabled for debugging');
-            return;
-            
             // Check if we're handling an update that was initiated before
             const handlingUpdate = localStorage.getItem('handlingUpdate') === 'true';
             if (handlingUpdate) {
@@ -353,7 +368,7 @@ if ('serviceWorker' in navigator) {
             }
             
             // Register service worker with simple approach
-            const SW_VERSION = '20250729-9'; // Match with service worker VERSION
+            const SW_VERSION = '20250801-5'; // Updated version
             const registration = await navigator.serviceWorker.register('./serviceWorker.js?v=' + SW_VERSION, {
                 updateViaCache: 'none'
             });
@@ -1197,11 +1212,6 @@ if (window.location.pathname.includes('problems.html')) {
             console.log('Available cache names:', names);
         });
     }
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOMContentLoaded fired for problems page');
-        initProblemsPage();
-    });
 }
 
 function initProblemsPage() {
