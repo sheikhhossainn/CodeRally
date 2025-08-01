@@ -104,64 +104,76 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize notification button state
     updateNotificationButtonState();
     
-    // Contest filter buttons
-    filterButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            // Remove active class from all filter buttons
-            filterButtons.forEach(btn => btn.classList.remove('active'));
-            // Add active class to clicked button
-            this.classList.add('active');
+    // Contest filter buttons - only add listeners if buttons exist
+    if (filterButtons.length > 0) {
+        filterButtons.forEach(button => {
+            if (button) {
+                button.addEventListener('click', function() {
+                    // Remove active class from all filter buttons
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    
+                    // Set current filter
+                    currentFilter = this.id;
+                    
+                    // Reset display limit when changing filter
+                    displayLimit = getDisplayLimit();
             
-            // Set current filter
-            currentFilter = this.id;
-            
-            // Reset display limit when changing filter
-            displayLimit = getDisplayLimit();
-            
-            // Display filtered contests
-            if (contestsCache) {
-                displayContests(contestsCache);
+                    // Display filtered contests
+                    if (contestsCache) {
+                        displayContests(contestsCache);
+                    }
+                });
             }
         });
-    });
+    }
     
-
-    platformButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            
-            platformButtons.forEach(btn => btn.classList.remove('active'));
-            
-            this.classList.add('active');
-            
-           
-            if (this.id === 'codeforces') {
-                fetchData();
-            } else {
-                contestList.innerHTML = `<li style="text-align: center; padding: 20px; color: #888;">${this.textContent} contests coming soon!</li>`;
+    // Platform buttons - only add listeners if buttons exist
+    if (platformButtons.length > 0) {
+        platformButtons.forEach(button => {
+            if (button) {
+                button.addEventListener('click', function() {
+                    
+                    platformButtons.forEach(btn => btn.classList.remove('active'));
+                    
+                    this.classList.add('active');
+                    
+                   
+                    if (this.id === 'codeforces') {
+                        fetchData();
+                    } else {
+                        contestList.innerHTML = `<li style="text-align: center; padding: 20px; color: #888;">${this.textContent} contests coming soon!</li>`;
+                    }
+                });
             }
         });
-    });
+    }
     
-
-    difficultyButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            // Remove active class from all difficulty buttons
-            difficultyButtons.forEach(btn => btn.classList.remove('active'));
-            // Add active class to clicked button
-            this.classList.add('active');
-            
-            // Set current difficulty filter
-            currentDifficulty = this.id;
-            
-            // Reset display limit when changing difficulty
-            displayLimit = getDisplayLimit();
-            
-            // Display filtered contests
-            if (contestsCache) {
-                displayContests(contestsCache);
+    // Difficulty buttons - only add listeners if buttons exist
+    if (difficultyButtons.length > 0) {
+        difficultyButtons.forEach(button => {
+            if (button) {
+                button.addEventListener('click', function() {
+                    // Remove active class from all difficulty buttons
+                    difficultyButtons.forEach(btn => btn.classList.remove('active'));
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    
+                    // Set current difficulty filter
+                    currentDifficulty = this.id;
+                    
+                    // Reset display limit when changing difficulty
+                    displayLimit = getDisplayLimit();
+                    
+                    // Display filtered contests
+                    if (contestsCache) {
+                        displayContests(contestsCache);
+                    }
+                });
             }
         });
-    });
+    }
     
     // PWA Install button
     let deferredPrompt;
@@ -172,112 +184,124 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if running in standalone mode (already installed)
         if (window.matchMedia('(display-mode: standalone)').matches || 
             window.navigator.standalone === true) {
-            installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>';
-            installBtn.title = 'App Installed';
-            installBtn.disabled = true;
+            if (installBtn) {
+                installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>';
+                installBtn.title = 'App Installed';
+                installBtn.disabled = true;
+            }
             return true;
         }
         return false;
     }
     
-    // Check on page load
-    if (!checkIfInstalled()) {
+    // Check on page load - only if install button exists
+    if (installBtn && !checkIfInstalled()) {
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             isPWAInstallable = true;
-            installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg></span>';
-            installBtn.title = 'Install App';
+            if (installBtn) {
+                installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg></span>';
+                installBtn.title = 'Install App';
+            }
         });
     }
     
-    installBtn.addEventListener('click', async () => {
-        if (deferredPrompt && isPWAInstallable) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') {
-                installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>';
-                installBtn.title = 'App Installed';
-                installBtn.disabled = true;
-            }
-            deferredPrompt = null;
-        } else {
-            // Detect device type and show appropriate instructions
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isAndroid = /Android/.test(navigator.userAgent);
-            
-            let message = 'To install this app:\n\n';
-            
-            if (isIOS) {
-                message += '📱 On iPhone/iPad:\n';
-                message += '1. Tap the Share button (⬆️)\n';
-                message += '2. Scroll down and tap "Add to Home Screen"\n';
-                message += '3. Tap "Add" to confirm';
-            } else if (isAndroid) {
-                message += '📱 On Android:\n';
-                message += '1. Tap the menu (⋮) in your browser\n';
-                message += '2. Look for "Add to Home Screen" or "Install app"\n';
-                message += '3. Tap "Install" or "Add"';
+    if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt && isPWAInstallable) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>';
+                    installBtn.title = 'App Installed';
+                    installBtn.disabled = true;
+                }
+                deferredPrompt = null;
             } else {
-                message += '💻 On Desktop:\n';
-                message += '• Chrome: Click the install icon in the address bar\n';
-                message += '• Firefox: Add to home screen from browser menu\n';
-                message += '• Edge: Click the install icon or use browser menu';
+                // Detect device type and show appropriate instructions
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const isAndroid = /Android/.test(navigator.userAgent);
+                
+                let message = 'To install this app:\n\n';
+                
+                if (isIOS) {
+                    message += '📱 On iPhone/iPad:\n';
+                    message += '1. Tap the Share button (⬆️)\n';
+                    message += '2. Scroll down and tap "Add to Home Screen"\n';
+                    message += '3. Tap "Add" to confirm';
+                } else if (isAndroid) {
+                    message += '📱 On Android:\n';
+                    message += '1. Tap the menu (⋮) in your browser\n';
+                    message += '2. Look for "Add to Home Screen" or "Install app"\n';
+                    message += '3. Tap "Install" or "Add"';
+                } else {
+                    message += '💻 On Desktop:\n';
+                    message += '• Chrome: Click the install icon in the address bar\n';
+                    message += '• Firefox: Add to home screen from browser menu\n';
+                    message += '• Edge: Click the install icon or use browser menu';
+                }
+                
+                alert(message);
             }
-            
-            alert(message);
-        }
-    });
+        });
+    }
     
     // Check if app is already installed
     window.addEventListener('appinstalled', () => {
-        installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>';
-        installBtn.title = 'App Installed';
-        installBtn.disabled = true;
+        if (installBtn) {
+            installBtn.innerHTML = '<span class="install-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>';
+            installBtn.title = 'App Installed';
+            installBtn.disabled = true;
+        }
     });
     
     // Periodic check for installation status (for mobile)
     setInterval(() => {
-        if (!installBtn.disabled) {
+        if (installBtn && !installBtn.disabled) {
             checkIfInstalled();
         }
     }, 2000);
     
-    // Notification button functionality
-    notificationBtn.addEventListener('click', async (event) => {
-        // Prevent default to avoid any form submission
-        event.preventDefault();
-        
-    // Don't process if already processing a click
-    if (notificationBtn.dataset.processing === 'true') {
-        return;
-    }
-    
-    // Set processing flag to prevent multiple clicks
-    notificationBtn.dataset.processing = 'true';
-    
-    try {
-        // Add a visual cue that the button was clicked
-        notificationBtn.classList.add('clicked');
-        
-        // Get current state before toggling
-        const currentState = localStorage.getItem('notificationsEnabled') === 'true';            // Toggle the notifications state
-            await toggleNotifications();
+    // Notification button functionality - only add listener if button exists
+    if (notificationBtn) {
+        notificationBtn.addEventListener('click', async (event) => {
+            // Prevent default to avoid any form submission
+            event.preventDefault();
             
-            // Force a complete refresh of the button state
-            updateNotificationButtonState();
-        } catch (error) {
-            // Make sure we reset the button state on error
-            updateNotificationButtonState();
-        } finally {
-            // Always make sure we reset the processing state
-            setTimeout(() => {
-                notificationBtn.classList.remove('clicked');
-                notificationBtn.dataset.processing = 'false';
-            }, 300);
-        }
-    });
+            // Don't process if already processing a click
+            if (notificationBtn.dataset.processing === 'true') {
+                return;
+            }
+            
+            // Set processing flag to prevent multiple clicks
+            notificationBtn.dataset.processing = 'true';
+            
+            try {
+                // Add a visual cue that the button was clicked
+                notificationBtn.classList.add('clicked');
+                
+                // Get current state before toggling
+                const currentState = localStorage.getItem('notificationsEnabled') === 'true';
+                
+                // Toggle the notifications state
+                await toggleNotifications();
+                
+                // Force a complete refresh of the button state
+                updateNotificationButtonState();
+            } catch (error) {
+                // Make sure we reset the button state on error
+                updateNotificationButtonState();
+            } finally {
+                // Always make sure we reset the processing state
+                setTimeout(() => {
+                    notificationBtn.classList.remove('clicked');
+                    notificationBtn.dataset.processing = 'false';
+                }, 300);
+            }
+        });
+    }
     
     // Initialize notification button state
     updateNotificationButtonState();
