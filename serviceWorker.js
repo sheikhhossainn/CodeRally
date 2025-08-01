@@ -1,5 +1,5 @@
 // Use fixed version string to enable proper update detection
-const VERSION = '20250729-7'; // Increment version
+const VERSION = '20250801-1'; // Increment version
 const CACHE_NAME = 'coderally-' + VERSION;
 
 // Add query params to bust cache
@@ -54,47 +54,42 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
   const requestURL = new URL(event.request.url);
   
-  // Special handling for Codeforces API requests - cache with longer duration
+  // Special handling for Codeforces API requests - network first strategy
   if (requestURL.hostname.includes('codeforces.com') && requestURL.pathname.includes('/api/')) {
     event.respondWith(
-      caches.match(event.request)
-        .then(cachedResponse => {
-          // For API requests, use cache first but with background update
-          if (cachedResponse) {
-            // Background fetch to update cache
-            fetch(event.request)
-              .then(networkResponse => {
-                if (networkResponse && networkResponse.status === 200) {
-                  caches.open(CACHE_NAME).then(cache => {
-                    cache.put(event.request, networkResponse.clone());
-                  });
-                }
-              })
-              .catch(() => {/* ignore background fetch errors */});
-            
-            return cachedResponse;
-          }
-          
-          // If not cached, fetch from network
-          return fetch(event.request)
-            .then(networkResponse => {
-              if (networkResponse && networkResponse.status === 200) {
-                const responseToCache = networkResponse.clone();
-                caches.open(CACHE_NAME).then(cache => {
-                  cache.put(event.request, responseToCache);
-                });
-              }
-              return networkResponse;
+      fetch(event.request)
+        .then(networkResponse => {
+          // Always try network first for API requests
+          if (networkResponse && networkResponse.status === 200) {
+            // Only cache successful responses
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              // Cache API responses with a shorter expiration
+              cache.put(event.request, responseToCache);
             });
+          }
+          return networkResponse;
         })
         .catch(() => {
-          return new Response(JSON.stringify({
-            status: 'FAILED',
-            comment: 'Service worker cache miss'
-          }), {
-            status: 408,
-            headers: { 'Content-Type': 'application/json' }
-          });
+          // Only fall back to cache if network completely fails
+          return caches.match(event.request)
+            .then(cachedResponse => {
+              if (cachedResponse) {
+                console.log('Using cached Codeforces API response');
+                return cachedResponse;
+              }
+              // Return a proper error response if no cache exists
+              return new Response(JSON.stringify({
+                status: 'FAILED',
+                comment: 'Network unavailable and no cached data'
+              }), {
+                status: 503,
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*'
+                }
+              });
+            });
         })
     );
   }
