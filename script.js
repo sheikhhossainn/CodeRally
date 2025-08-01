@@ -91,17 +91,35 @@ let displayLimit = getDisplayLimit();
 document.addEventListener('DOMContentLoaded', function() {
     // Detect which page we're on
     const currentPage = window.location.pathname;
-    const isProblemsPage = currentPage.includes('problems.html') || document.getElementById('problemsList');
-    const isMainPage = currentPage === '/' || currentPage.includes('index.html') || document.getElementById('contestList');
+    const isProblemsPage = currentPage.includes('problems.html') || document.getElementById('problemsList') !== null;
+    const isMainPage = currentPage === '/' || currentPage.includes('index.html') || document.getElementById('contestList') !== null;
     
-    console.log('Page detection:', { currentPage, isProblemsPage, isMainPage });
+    console.log('Page detection:', { 
+        currentPage, 
+        isProblemsPage, 
+        isMainPage, 
+        problemsListExists: !!document.getElementById('problemsList'),
+        contestListExists: !!document.getElementById('contestList')
+    });
     
-    if (isMainPage && !isProblemsPage) {
-        // Initialize main page (contests) functionality
-        initMainPage();
-    } else if (isProblemsPage) {
+    if (isProblemsPage && !isMainPage) {
         // Initialize problems page functionality
+        console.log('Initializing PROBLEMS page');
         initProblemsPage();
+    } else if (isMainPage && !isProblemsPage) {
+        // Initialize main page (contests) functionality
+        console.log('Initializing MAIN page');
+        initMainPage();
+    } else {
+        console.warn('Could not detect page type properly', { isProblemsPage, isMainPage });
+        // Fallback: try to initialize based on which elements exist
+        if (document.getElementById('problemsList')) {
+            console.log('Fallback: Initializing PROBLEMS page based on element existence');
+            initProblemsPage();
+        } else if (document.getElementById('contestList')) {
+            console.log('Fallback: Initializing MAIN page based on element existence');
+            initMainPage();
+        }
     }
 });
 
@@ -1238,10 +1256,9 @@ function initProblemsPage() {
     
     // Test if we can modify the loading indicator
     if (loadingIndicator) {
-        loadingIndicator.innerHTML = 'Checking for problems data...';
+        loadingIndicator.innerHTML = 'Initializing problems page...';
+        loadingIndicator.style.display = 'block';
         console.log('✅ Successfully updated loading indicator');
-        
-        // Remove the debug timeout
     } else {
         console.error('❌ Loading indicator not found!');
         return;
@@ -1385,20 +1402,16 @@ async function fetchProblems() {
         const response = await fetch('https://codeforces.com/api/problemset.problems');
         const data = await response.json();
         
-        if (data && data.status === 'OK' && data.result && data.result.problems) {
-            // Cache the data
-            problemsData = data.result.problems;
-            localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
-            localStorage.setItem('problemsFetchTime', now.toString());
-            
-            console.log(`✅ Successfully fetched ${problemsData.length} problems from API`);
-            filterAndDisplayProblems();
-            
-            if (loadingIndicator) {
-                loadingIndicator.style.display = 'none';
-            }
-        } else {
-            throw new Error('Invalid API response structure');
+        // Cache the data
+        problemsData = data.result.problems;
+        localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
+        localStorage.setItem('problemsFetchTime', now.toString());
+        
+        console.log(`✅ Successfully fetched ${problemsData.length} problems from API`);
+        filterAndDisplayProblems();
+        
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
         }
     } catch (error) {
         // Try proxy as fallback
@@ -1407,50 +1420,34 @@ async function fetchProblems() {
             const proxyData = await response.json();
             const data = JSON.parse(proxyData.contents);
             
-            if (data && data.status === 'OK' && data.result && data.result.problems) {
-                problemsData = data.result.problems;
-                localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
-                localStorage.setItem('problemsFetchTime', now.toString());
-                
-                console.log(`✅ Successfully fetched ${problemsData.length} problems from proxy`);
-                filterAndDisplayProblems();
-                
-                if (loadingIndicator) {
-                    loadingIndicator.style.display = 'none';
-                }
-            } else {
-                throw new Error('Invalid proxy response structure');
+            problemsData = data.result.problems;
+            localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
+            localStorage.setItem('problemsFetchTime', now.toString());
+            
+            console.log(`✅ Successfully fetched ${problemsData.length} problems from proxy`);
+            filterAndDisplayProblems();
+            
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
             }
         } catch (fallbackError) {
-            console.error('Both direct and proxy requests failed:', fallbackError);
-            
-            // Try to use any cached data as fallback, even if expired
-            const fallbackCachedProblems = localStorage.getItem('cachedProblems');
-            if (fallbackCachedProblems) {
+            // Use cached data if available (even if expired)
+            if (cachedProblems) {
                 console.log("🔄 Using expired cached data as fallback");
-                try {
-                    problemsData = JSON.parse(fallbackCachedProblems);
-                    console.log('Fallback cached problems loaded:', problemsData.length);
-                    filterAndDisplayProblems();
-                    
-                    if (loadingIndicator) {
-                        loadingIndicator.innerHTML = 'Using cached data (API temporarily unavailable)';
-                        setTimeout(() => {
-                            if (loadingIndicator) {
-                                loadingIndicator.style.display = 'none';
-                            }
-                        }, 2000);
-                    }
-                    return;
-                } catch (parseError) {
-                    console.error('Error parsing cached data:', parseError);
+                problemsData = JSON.parse(cachedProblems);
+                filterAndDisplayProblems();
+                if (loadingIndicator) {
+                    loadingIndicator.innerHTML = 'Using cached data (API temporarily unavailable)';
+                    setTimeout(() => {
+                        if (loadingIndicator) loadingIndicator.style.display = 'none';
+                    }, 2000);
                 }
+                return;
             }
             
             // Final fallback to backup problems
             console.log("🆘 Using backup problems data");
             problemsData = generateBackupProblems();
-            console.log('Backup problems loaded:', problemsData.length);
             filterAndDisplayProblems();
             
             if (loadingIndicator) {
@@ -1729,13 +1726,3 @@ function getDifficultyText(rating) {
     if (!rating) return 'Unrated';
     return rating.toString();
 }
-
-// Page initialization based on location
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize the appropriate page
-    if (window.location.pathname.includes('problems.html')) {
-        // We're on the problems page - initialization already handled
-    } else {
-        // We're on the home page - additional initializations can go here
-    }
-});
