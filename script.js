@@ -89,10 +89,21 @@ let displayLimit = getDisplayLimit();
 
 // Set up event listeners when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    // Detect which page we're on
+    // Detect which page we're on based on URL first, then fallback to DOM elements
     const currentPage = window.location.pathname;
-    const isProblemsPage = currentPage.includes('problems.html') || document.getElementById('problemsList') !== null;
-    const isMainPage = currentPage === '/' || currentPage.includes('index.html') || document.getElementById('contestList') !== null;
+    let isProblemsPage = false;
+    let isMainPage = false;
+    
+    // Primary detection: URL-based
+    if (currentPage.includes('problems.html')) {
+        isProblemsPage = true;
+    } else if (currentPage === '/' || currentPage.includes('index.html') || currentPage === '') {
+        isMainPage = true;
+    } else {
+        // Fallback detection: DOM-based
+        isProblemsPage = document.getElementById('problemsList') !== null;
+        isMainPage = document.getElementById('contestList') !== null;
+    }
     
     console.log('Page detection:', { 
         currentPage, 
@@ -102,24 +113,16 @@ document.addEventListener('DOMContentLoaded', function() {
         contestListExists: !!document.getElementById('contestList')
     });
     
-    if (isProblemsPage && !isMainPage) {
+    if (isProblemsPage) {
         // Initialize problems page functionality
         console.log('Initializing PROBLEMS page');
         initProblemsPage();
-    } else if (isMainPage && !isProblemsPage) {
+    } else if (isMainPage) {
         // Initialize main page (contests) functionality
         console.log('Initializing MAIN page');
         initMainPage();
     } else {
-        console.warn('Could not detect page type properly', { isProblemsPage, isMainPage });
-        // Fallback: try to initialize based on which elements exist
-        if (document.getElementById('problemsList')) {
-            console.log('Fallback: Initializing PROBLEMS page based on element existence');
-            initProblemsPage();
-        } else if (document.getElementById('contestList')) {
-            console.log('Fallback: Initializing MAIN page based on element existence');
-            initMainPage();
-        }
+        console.warn('Could not detect page type properly', { currentPage, isProblemsPage, isMainPage });
     }
 });
 
@@ -1399,36 +1402,57 @@ async function fetchProblems() {
     }
     
     try {
+        console.log('🔄 Attempting to fetch problems from Codeforces API...');
         const response = await fetch('https://codeforces.com/api/problemset.problems');
+        console.log('📡 Response received:', response.status, response.statusText);
+        
         const data = await response.json();
+        console.log('📊 Data parsed:', data ? 'Success' : 'Failed', 'Status:', data?.status);
         
-        // Cache the data
-        problemsData = data.result.problems;
-        localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
-        localStorage.setItem('problemsFetchTime', now.toString());
-        
-        console.log(`✅ Successfully fetched ${problemsData.length} problems from API`);
-        filterAndDisplayProblems();
-        
-        if (loadingIndicator) {
-            loadingIndicator.style.display = 'none';
-        }
-    } catch (error) {
-        // Try proxy as fallback
-        try {
-            const response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems'));
-            const proxyData = await response.json();
-            const data = JSON.parse(proxyData.contents);
-            
+        if (data && data.status === 'OK' && data.result && data.result.problems) {
+            // Cache the data
             problemsData = data.result.problems;
             localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
             localStorage.setItem('problemsFetchTime', now.toString());
             
-            console.log(`✅ Successfully fetched ${problemsData.length} problems from proxy`);
+            console.log(`✅ Successfully fetched ${problemsData.length} problems from API`);
             filterAndDisplayProblems();
             
             if (loadingIndicator) {
                 loadingIndicator.style.display = 'none';
+            }
+        } else {
+            console.error('❌ Invalid API response structure:', data);
+            throw new Error('Invalid API response structure');
+        }
+    } catch (error) {
+        console.error('❌ Direct API fetch failed:', error.message);
+        // Try proxy as fallback
+        try {
+            console.log('🔄 Attempting proxy fallback...');
+            const response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://codeforces.com/api/problemset.problems'));
+            console.log('📡 Proxy response received:', response.status, response.statusText);
+            
+            const proxyData = await response.json();
+            console.log('📦 Proxy data parsed:', proxyData ? 'Success' : 'Failed');
+            
+            const data = JSON.parse(proxyData.contents);
+            console.log('📊 Contents parsed:', data ? 'Success' : 'Failed', 'Status:', data?.status);
+            
+            if (data && data.status === 'OK' && data.result && data.result.problems) {
+                problemsData = data.result.problems;
+                localStorage.setItem('cachedProblems', JSON.stringify(problemsData));
+                localStorage.setItem('problemsFetchTime', now.toString());
+                
+                console.log(`✅ Successfully fetched ${problemsData.length} problems from proxy`);
+                filterAndDisplayProblems();
+                
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
+            } else {
+                console.error('❌ Invalid proxy response structure:', data);
+                throw new Error('Invalid proxy response structure');
             }
         } catch (fallbackError) {
             // Use cached data if available (even if expired)
